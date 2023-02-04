@@ -1,0 +1,24 @@
+{
+  "name": "forever-websocket",
+  "version": "0.1.0",
+  "description": "Reconnecting and isomorphic WebSocket client - a simple implementation",
+  "main": "src/index.mjs",
+  "module": "src/index.mjs",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dutu/xworker-polo-3trad"
+  },
+  "private": true,
+  "keywords": [
+    "WebSocket",
+    "ws",
+    "reconnecting",
+    "reconnect",
+    "persistent"
+  ],
+  "packageManager": "yarn@3.4.1",
+  "dependencies": {
+    "eventemitter3": "^5.0.0",
+    "ws": "^8.12.0"
+  }
+}

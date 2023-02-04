@@ -2,25 +2,17 @@ import ws from 'ws'
 import EventEmitter from 'eventemitter3'
 
 /**
- * This class represents a reconnecting WebSocket. It extends the EventEmitter.
+ * This class represents a reconnecting WebSocket client. It extends the EventEmitter.
  *
- * The class exposes all websocket
+ * The class exposes all WebSocket properties and methods
  * WebSocket client https://github.com/websockets/ws
  */
-
-// Names of properties which are not cloned from underlying WebSocket
-const ownEventNames = ['connecting', 'delay', 'timeout', 'newListener', 'removeListener', 'reconnected']
-
+export class ForeverWebSocket extends EventEmitter {
+  // Names of properties which are not cloned from underlying WebSocket
+  #ownEventNames = ['connecting', 'delay', 'timeout', 'newListener', 'removeListener', 'reconnected']
 // Property names for `options`
-const optionsPropertyNames = ['automaticOpen', 'reconnect', 'timeout', 'ping', 'newWebsocketFn']
+  #optionsPropertyNames = ['automaticOpen', 'reconnect', 'timeout', 'ping', 'newWebsocketFn']
 
-// Detects if the property name is a method of obj
-function isMethod (obj, propertyName) {
-  const desc = Object.getOwnPropertyDescriptor (obj, propertyName);
-  return !!desc && typeof desc.value === 'function';
-}
-
-export class ReconnectingWebSocketClient extends EventEmitter {
   /**
    *
    * @param {string} address - The URL to which to connect
@@ -42,6 +34,12 @@ export class ReconnectingWebSocketClient extends EventEmitter {
   constructor(address, protocol, options) {
     super()
 
+    // Detects if the property name is a method of obj
+    const isMethod = (obj, propertyName) => {
+      const desc = Object.getOwnPropertyDescriptor (obj, propertyName);
+      return !!desc && typeof desc.value === 'function';
+    }
+
     // Store parameters
     this._address = address
     if (Array.isArray(protocol) || typeof protocol === 'string') {
@@ -54,7 +52,7 @@ export class ReconnectingWebSocketClient extends EventEmitter {
 
     this._optionsWebSocket = {}
     Object.keys(this._options).forEach((key) => {
-      if (!optionsPropertyNames.includes(key)) {
+      if (!this.#optionsPropertyNames.includes(key)) {
         this._optionsWebSocket[key] = this._options[key]
       }
     })
@@ -262,7 +260,7 @@ export class ReconnectingWebSocketClient extends EventEmitter {
    * @param options
    */
   on(eventName, listener, options) {
-    if (ownEventNames.includes(eventName)) {
+    if (this.#ownEventNames.includes(eventName)) {
       return super.on(eventName, listener)
     }
 
@@ -302,7 +300,7 @@ export class ReconnectingWebSocketClient extends EventEmitter {
    * Alias for `on`
    */
   addEventListener(eventName, listener, options) {
-    if (ownEventNames.includes(eventName)) {
+    if (this.#ownEventNames.includes(eventName)) {
       return super.on(eventName, listener)
     }
 
@@ -327,9 +325,8 @@ export class ReconnectingWebSocketClient extends EventEmitter {
     return this
   }
 
-
   off(eventName, listener) {
-    if (ownEventNames.includes(eventName)) {
+    if (this.#ownEventNames.includes(eventName)) {
       return super.removeListener(eventName, listener)
     }
 
@@ -349,7 +346,6 @@ export class ReconnectingWebSocketClient extends EventEmitter {
   removeEventListener(...args) {
     this.addListener(...args)
   }
-
 
   /**
    * Returns the readyState of the underlying WebSocket or `undefined` if it does not exist.
@@ -372,7 +368,6 @@ export class ReconnectingWebSocketClient extends EventEmitter {
     } else {
       this.ws = new ws(this._address, this._protocol, this._optionsWebSocket)
     }
-
 
     // When WebSocket connection is open, restart ping and timeout factories, and reset the reconnect factory
     this.ws.addEventListener('open', () => {
@@ -441,7 +436,7 @@ export class ReconnectingWebSocketClient extends EventEmitter {
    *
    * Sends data to the WebsocketServer.
    *
-   * The method extends `WebSocket.send()` method, so that and `Object` can be passed, in which case it is stringfied before sending.
+   * The method extends `WebSocket.send()` method, so that and `Object` can be passed. In this case the object is stringfied before sending.
    *
    * It will throw an exception if you call send() when the connection is in the CONNECTING state or when underlying WebSocket object does not exist.
    *
@@ -491,5 +486,3 @@ export class ReconnectingWebSocketClient extends EventEmitter {
     }
   }
 }
-
-

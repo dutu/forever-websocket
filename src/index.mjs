@@ -11,8 +11,21 @@ export class ForeverWebSocket extends EventEmitter {
   // Names of properties which are not cloned from underlying WebSocket
   #ownEventNames = ['connecting', 'delay', 'timeout', 'newListener', 'removeListener', 'reconnected']
 // Property names for `options`
-  #optionsPropertyNames = ['automaticOpen', 'reconnect', 'timeout', 'ping', 'newWebsocketFn']
-
+  #optionsExtendedPropertyNames = ['automaticOpen', 'reconnect', 'timeout', 'ping', 'newWebSocket']
+  // stores constructor parameter - the URL to which to connect
+  #address
+  // stores constructor parameter - the URL to which to connect#address
+  #protocol
+  #optionsExtended = {
+    automaticOpen: true,
+  }
+  #optionsWebSocket
+  #reconnectManager
+  #timeoutManager
+  #pingManager
+  // stores WebSocket registered listeners, which will be re-registered when a new WebSocket connection is established at reconnect
+  #listenersWebSocket
+  
   /**
    *
    * @param {string} address - The URL to which to connect
@@ -29,35 +42,52 @@ export class ForeverWebSocket extends EventEmitter {
    * @param {number} [options.ping.interval] - Ping interval value in milliseconds
    * @param {array|number|object|string|ArrayBuffer|buffer} [options.ping.data] - The data to send in the ping frame
    * @param {boolean} [options.ping.mask=true] - Specifies whether `data` should be masked or not. Defaults to `true` when websocket is not a server client
-   * @param {function} [options.newWebSocketFn] - Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL).
+   * @param {function} [options.newWebSocket] - Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL).
    */
   constructor(address, protocol, options) {
     super()
 
-    // Detects if the property name is a method of obj
+    // Helper function - Checks if `propertyName` is a method of `obj`
     const isMethod = (obj, propertyName) => {
       const desc = Object.getOwnPropertyDescriptor (obj, propertyName);
       return !!desc && typeof desc.value === 'function';
     }
 
-    // Store parameters
-    this._address = address
-    if (Array.isArray(protocol) || typeof protocol === 'string') {
-      this._protocol = protocol
-      this._options = options || {}
-    } else {
-      this._protocol = undefined
-      this._options = protocol || {}
+    // Helper function - Checks if `obj` is an object
+    const isObject = (obj) => {
+      return typeof obj === 'object' && obj !== null && !Array.isArray(obj)
     }
 
-    this._optionsWebSocket = {}
-    Object.keys(this._options).forEach((key) => {
-      if (!this.#optionsPropertyNames.includes(key)) {
-        this._optionsWebSocket[key] = this._options[key]
+    // Store address parameter
+    this.#address = address
+
+    // Store protocol parameter
+    let allOptions
+    if (Array.isArray(protocol) || typeof protocol === 'string') {
+      this.#protocol = protocol
+      allOptions = options || {}
+    } else {
+      this.#protocol = undefined
+      allOptions = protocol || {}
+    }
+
+    // Store options parameters, separating the keys to `#optionsWebSocket` (WebSocket native options) and `#optionsExtended` (ForeverWebSocket options)
+    Object.keys(allOptions).forEach((key) => {
+      if (this.#optionsExtendedPropertyNames.includes(key)) {
+        if (isObject(allOptions[key]) && isObject(this.#optionsExtended[key])) {
+          // if key value is an object, keep default values if not specified in parameter `options` 
+          this.#optionsExtended[key] = { ...this.#optionsExtended[key], ...allOptions[key] }
+        } else {
+          // else store the specified value
+          this.#optionsExtended[key] = allOptions[key] 
+        }
+      } else {
+        this.#optionsWebSocket ??= {}
+        this.#optionsWebSocket[key] = allOptions[key]
       }
     })
 
-    this._listenersWebSocket = {}
+    this.#listenersWebSocket = {}
 
     // Add methods and properties of underlying WebSocket class, except `reservedPropertyNames` which are defined explicitly
     const reservedPropertyNames = ['close', 'send', 'constructor', 'readyState', 'onopen', 'onmessage', 'onerror', 'onclose', 'addEventListener', 'removeEventListener']
@@ -76,7 +106,7 @@ export class ForeverWebSocket extends EventEmitter {
 
     // Defines factory function to handle reconnect
     function createReconnectFactory({ strategy = 'fibonacci', initialDelay = 50, maxDelay = 10000, randomizeDelay = true, factor = 1.5 } = {}, callbackStartConnect, callbackStartDelay) {
-      let lastConnectedTimestamp
+      let lastConnectedMts
       let isStopped = false
       let retryNumber = 0
       let previousDelay = 0
@@ -90,7 +120,7 @@ export class ForeverWebSocket extends EventEmitter {
           exponential: () => delay * factor,
         }
 
-        lastConnectedTimestamp = Date.now()
+        lastConnectedMts = Date.now()
         isStopped = false
         previousDelay = delay
         delay = nextDelay
@@ -101,7 +131,7 @@ export class ForeverWebSocket extends EventEmitter {
         callbackStartDelay(retryNumber + 1, randomizedDelay)
         timeoutId = setTimeout(() => {
           retryNumber += 1
-          callbackStartConnect(retryNumber, lastConnectedTimestamp)
+          callbackStartConnect(retryNumber, lastConnectedMts)
         }, randomizedDelay)
         timeoutId.unref?.()
 
@@ -117,7 +147,7 @@ export class ForeverWebSocket extends EventEmitter {
         previousDelay = 0
         delay = 0
         nextDelay = initialDelay
-        lastConnectedTimestamp = undefined
+        lastConnectedMts = undefined
       }
 
       function stop() {
@@ -125,8 +155,8 @@ export class ForeverWebSocket extends EventEmitter {
         clearTimeout(timeoutId)
       }
 
-      function getLastConnectedTimestamp() {
-        return lastConnectedTimestamp
+      function getlastConnectedMts() {
+        return lastConnectedMts
       }
 
       function getIsStopped() {
@@ -141,15 +171,16 @@ export class ForeverWebSocket extends EventEmitter {
         scheduleNextConnect,
         reset,
         stop,
-        lastConnectedTimestamp: getLastConnectedTimestamp,
+        lastConnectedMts: getlastConnectedMts,
         isStopped: getIsStopped,
         retryNumber: getRetryNumber,
       })
     }
 
-    if (this._options.hasOwnProperty('reconnect')) {
-      this._reconnectFactory = createReconnectFactory(
-        this._options.reconnect,
+    // Create reconnect manager if needed
+    if (this.#optionsExtended.hasOwnProperty('reconnect')) {
+      this.#reconnectManager = createReconnectFactory(
+        this.#optionsExtended.reconnect,
         (retryNumber, lastConnectionTimestamp) => {
           this.emit('connecting', retryNumber, lastConnectionTimestamp)
           this.connect()
@@ -160,10 +191,9 @@ export class ForeverWebSocket extends EventEmitter {
       )
     }
 
-    if (this._options.automaticOpen) {
+    if (this.#optionsExtended.automaticOpen) {
       this.connect()
     }
-
 
     function createPingFactory({ interval }, callbackPing) {
       let intervalId
@@ -171,6 +201,7 @@ export class ForeverWebSocket extends EventEmitter {
         intervalId = setInterval(() => {
           callbackPing()
         }, interval)
+        
         intervalId.unref?.()
       }
 
@@ -184,17 +215,18 @@ export class ForeverWebSocket extends EventEmitter {
       })
     }
 
-    if (this._options.ping) {
-      this._pingFactory = createPingFactory(
+    // Create ping manager if needed
+    if (this.#optionsExtended.ping) {
+      this.#pingManager = createPingFactory(
         {
-          interval: this._options.ping.interval,
+          interval: this.#optionsExtended.ping.interval,
         },
         () => {
           if (this.readyState === 1) {
             if (typeof this.ping === 'function') {
-              this.ping(this._options.ping.data, this._options.ping.mask)
+              this.ping(this.#optionsExtended.ping.data, this.#optionsExtended.ping.mask)
             } else {
-              this.send(this._options.ping.data)
+              this.send(this.#optionsExtended.ping.data)
             }
           }
         }
@@ -203,15 +235,15 @@ export class ForeverWebSocket extends EventEmitter {
 
     function createTimeoutFactory({ timeout }, callbackTimeout) {
       let timeoutId
-      let lastRefreshMts
-      function refresh() {
-        lastRefreshMts = Date.now()
+      let lastActiveMts
+      function reset() {
+        lastActiveMts = Date.now()
         if (typeof timeoutId?.refresh === 'function') {
           timeoutId.refresh()
         } else {
           clearTimeout(timeoutId)
           timeoutId = setTimeout(() => {
-            callbackTimeout(lastRefreshMts)
+            callbackTimeout(lastActiveMts)
           }, timeout)
         }
 
@@ -219,7 +251,7 @@ export class ForeverWebSocket extends EventEmitter {
       }
 
       function start() {
-        refresh()
+        reset()
       }
 
       function stop() {
@@ -229,18 +261,19 @@ export class ForeverWebSocket extends EventEmitter {
 
       return Object.freeze({
         start,
-        refresh,
+        reset,
         stop,
       })
     }
 
-    if (this._options.hasOwnProperty('timeout') && this._options.timeout > 0) {
-      this._timeoutFactory = createTimeoutFactory(
+    // Create timeout manager if needed
+    if (this.#optionsExtended.hasOwnProperty('timeout') && this.#optionsExtended.timeout > 0) {
+      this.#timeoutManager = createTimeoutFactory(
         {
-          timeout: this._options.timeout
+          timeout: this.#optionsExtended.timeout
         },
-        (lastRefreshMts) => {
-          this.emit('timeout', lastRefreshMts)
+        (lastActiveMts) => {
+          this.emit('timeout', lastActiveMts)
           this.refresh()
         }
       )
@@ -265,17 +298,17 @@ export class ForeverWebSocket extends EventEmitter {
     }
 
     // Add listener to listeners array, so that it can be added later when a new WebSocket object is created at reconnect
-    if(Array.isArray(this._listenersWebSocket[eventName])) {
-      this._listenersWebSocket[eventName].unshift({ listener, options, method: 'on' })
+    if(Array.isArray(this.#listenersWebSocket[eventName])) {
+      this.#listenersWebSocket[eventName].unshift({ listener, options, method: 'on' })
     } else {
-      this._listenersWebSocket[eventName] = [{ listener, options, method: 'on' }]
+      this.#listenersWebSocket[eventName] = [{ listener, options, method: 'on' }]
     }
 
     if (this.ws) {
       if (options?.once) {
         this.ws.addEventListener(eventName, () => {
-          let index = this._listenersWebSocket[eventName].findIndex((elem) => elem.listener === listener && elem.options?.once)
-          if (index > -1) this._listenersWebSocket[eventName].splice(index, 1)
+          let index = this.#listenersWebSocket[eventName].findIndex((elem) => elem.listener === listener && elem.options?.once)
+          if (index > -1) this.#listenersWebSocket[eventName].splice(index, 1)
         }, { once: true })
       }
 
@@ -305,17 +338,17 @@ export class ForeverWebSocket extends EventEmitter {
     }
 
     // Add listener to listeners array, so that it can be added later when a new WebSocket object is created at reconnect
-    if(Array.isArray(this._listenersWebSocket[eventName])) {
-      this._listenersWebSocket[eventName].unshift({ listener, options, method: 'addEventListener' })
+    if(Array.isArray(this.#listenersWebSocket[eventName])) {
+      this.#listenersWebSocket[eventName].unshift({ listener, options, method: 'addEventListener' })
     } else {
-      this._listenersWebSocket[eventName] = [[listener, options]]
+      this.#listenersWebSocket[eventName] = [[listener, options]]
     }
 
     if (this.ws) {
       if (options?.once) {
         this.ws.addEventListener(eventName, () => {
-          let index = this._listenersWebSocket[eventName].findIndex((elem) => elem.listener === listener && elem.options?.once)
-          if (index > -1) this._listenersWebSocket[eventName].splice(index, 1)
+          let index = this.#listenersWebSocket[eventName].findIndex((elem) => elem.listener === listener && elem.options?.once)
+          if (index > -1) this.#listenersWebSocket[eventName].splice(index, 1)
         }, { once: true })
       }
 
@@ -333,8 +366,8 @@ export class ForeverWebSocket extends EventEmitter {
     this.ws.removeEventListener(eventName, listener)
 
     // Remove listener from listeners array
-    let index = this._listenersWebSocket[eventName].findIndex((elem) => elem[0] === listener)
-    if (index > -1) this._listenersWebSocket[eventName].splice(index, 1)
+    let index = this.#listenersWebSocket[eventName].findIndex((elem) => elem[0] === listener)
+    if (index > -1) this.#listenersWebSocket[eventName].splice(index, 1)
 
     return this
   }
@@ -358,60 +391,65 @@ export class ForeverWebSocket extends EventEmitter {
   }
 
   connect() {
-    // Stop ping and timout factories, will activate them again when WebSocket connection is open
-    this._pingFactory?.stop()
-    this._timeoutFactory?.stop()
+    // If a WebSocket is already defined do nothing
+    if (this.ws) {
+      return
+    }
+    // Stop ping and timout managers, will activate them again when WebSocket connection is open
+    this.#pingManager?.stop()
+    this.#timeoutManager?.stop()
 
-    // Create a new WebSocket, either by calling `options.newWebSocketFn` or using the WebSocket class
-    if (this._options.newWebSocketFn) {
-      this.ws = this._options.newWebSocketFn()
+    // Create a new WebSocket, either by calling `options.newWebSocket` or using the WebSocket class
+    if (this.#optionsExtended.newWebSocket) {
+      this.ws = this.#optionsExtended.newWebSocket()
     } else {
-      this.ws = new ws(this._address, this._protocol, this._optionsWebSocket)
+      this.ws = new ws(this.#address, this.#protocol, this.#optionsWebSocket)
     }
 
-    // When WebSocket connection is open, restart ping and timeout factories, and reset the reconnect factory
+    // When WebSocket connection is open, restart ping and timeout managers, and reset the reconnect manager
     this.ws.addEventListener('open', () => {
-      this._pingFactory?.start()
-      this._timeoutFactory?.start()
-      if (this._reconnectFactory) {
-        const retryNumber = this._reconnectFactory.retryNumber()
-        const lastConnectedTimestamp = this._reconnectFactory.lastConnectedTimestamp()
-        this._reconnectFactory.reset()
-        if (lastConnectedTimestamp) {
-          this.emit('reconnected', retryNumber, lastConnectedTimestamp)
+      this.#pingManager?.start()
+      this.#timeoutManager?.start()
+      if (this.#reconnectManager) {
+        const retryNumber = this.#reconnectManager.retryNumber()
+        const lastConnectedMts = this.#reconnectManager.lastConnectedMts()
+        this.#reconnectManager.reset()
+        if (lastConnectedMts) {
+          this.emit('reconnected', retryNumber, lastConnectedMts)
         }
       }
     })
 
-    // When message is received, refresh timeout factory
+    // When a message is received, reset timeout manager
     this.ws.addEventListener('message', () => {
-      this._timeoutFactory?.refresh()
+      this.#timeoutManager?.reset()
     })
 
-    // When pong is received, refresh timeout factory.
-    // Note: Not all websocket implementations support `on()` method and `pong` event
+    // When pong is received, refresh timeout manager
+    // Note: Not all WebSocket implementations support `on()` method and `pong` event
     if (typeof this.ws.on === 'function') {
       this.ws.on('pong',  (data) => {
-        this._timeoutFactory?.refresh()
+        this.#timeoutManager?.reset()
       })
     }
 
+    // When WebSocket closes, stop ping and timeout managers and schedule next reconnect if reconnect manager is defined and not stopped manually.
     this.ws.addEventListener('close', () => {
-      this._pingFactory?.stop()
-      this._timeoutFactory?.stop()
-      if (this._reconnectFactory && !this._reconnectFactory.isStopped()) {
-        this._reconnectFactory.scheduleNextConnect()
+      this.#pingManager?.stop()
+      this.#timeoutManager?.stop()
+      if (this.#reconnectManager && !this.#reconnectManager.isStopped()) {
+        this.#reconnectManager.scheduleNextConnect()
       }
     })
 
-    // Add existing event listeners to the new underlying WebSocket object
-    for (const [eventName, listeners] of Object.entries(this._listenersWebSocket)) {
+    // Add registered event listeners to the new underlying WebSocket object
+    for (const [eventName, listeners] of Object.entries(this.#listenersWebSocket)) {
       for (const { listener, options, method } of listeners) {
         // If once = true, then remove listeners from listeners array when the event has occurred once
         if(options?.once) {
           this.ws.addEventListener(eventName, () => {
-            let index = this._listenersWebSocket[eventName].findIndex((elem) => elem.listener === listener && elem.options?.once)
-            if (index > -1) this._listenersWebSocket[eventName].splice(index, 1)
+            let index = this.#listenersWebSocket[eventName].findIndex((elem) => elem.listener === listener && elem.options?.once)
+            if (index > -1) this.#listenersWebSocket[eventName].splice(index, 1)
           }, { once: true })
         }
 
@@ -453,8 +491,8 @@ export class ForeverWebSocket extends EventEmitter {
   /**
    * Refreshes the connection (close, re-open).
    */
-  refresh() {
-    this.ws.close()
+  refresh(code, reason) {
+    this.ws.close(code, reason)
   }
 
   /**
@@ -464,9 +502,9 @@ export class ForeverWebSocket extends EventEmitter {
    * @param reason
    */
   close(code, reason) {
-    this._pingFactory?.stop()
-    this._timeoutFactory?.stop()
-    this._reconnectFactory?.stop()
+    this.#pingManager?.stop()
+    this.#timeoutManager?.stop()
+    this.#reconnectManager?.stop()
     this.ws.close(code, reason)
   }
 
@@ -476,9 +514,9 @@ export class ForeverWebSocket extends EventEmitter {
    * For some browser WebSocket implementation this method is not available, in which case internally this calls `WebSocket.close()`.
    */
   terminate() {
-    this._pingFactory?.stop()
-    this._timeoutFactory?.stop()
-    this._reconnectFactory?.stop()
+    this.#pingManager?.stop()
+    this.#timeoutManager?.stop()
+    this.#reconnectManager?.stop()
     if (typeof this.ws?.terminate === 'function') {
       this.ws.terminate()
     } else {

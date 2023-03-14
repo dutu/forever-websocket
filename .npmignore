@@ -1,0 +1,5 @@
+.gitignore
+.idea/
+test/
+examples/
+docs/

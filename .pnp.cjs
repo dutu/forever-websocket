@@ -29,7 +29,7 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./",\
           "packageDependencies": [\
             ["eventemitter3", "npm:5.0.0"],\
-            ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.12.0"]\
+            ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.13.0"]\
           ],\
           "linkType": "SOFT"\
         }]\
@@ -49,23 +49,23 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageDependencies": [\
             ["forever-websocket", "workspace:."],\
             ["eventemitter3", "npm:5.0.0"],\
-            ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.12.0"]\
+            ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.13.0"]\
           ],\
           "linkType": "SOFT"\
         }]\
       ]],\
       ["ws", [\
-        ["npm:8.12.0", {\
-          "packageLocation": "./.yarn/cache/ws-npm-8.12.0-4e21348613-818ff3f874.zip/node_modules/ws/",\
+        ["npm:8.13.0", {\
+          "packageLocation": "./.yarn/cache/ws-npm-8.13.0-26ffa3016a-53e991bbf9.zip/node_modules/ws/",\
           "packageDependencies": [\
-            ["ws", "npm:8.12.0"]\
+            ["ws", "npm:8.13.0"]\
           ],\
           "linkType": "SOFT"\
         }],\
-        ["virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.12.0", {\
-          "packageLocation": "./.yarn/__virtual__/ws-virtual-b5121626a8/0/cache/ws-npm-8.12.0-4e21348613-818ff3f874.zip/node_modules/ws/",\
+        ["virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.13.0", {\
+          "packageLocation": "./.yarn/__virtual__/ws-virtual-9369e11d2c/0/cache/ws-npm-8.13.0-26ffa3016a-53e991bbf9.zip/node_modules/ws/",\
           "packageDependencies": [\
-            ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.12.0"],\
+            ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.13.0"],\
             ["@types/bufferutil", null],\
             ["@types/utf-8-validate", null],\
             ["bufferutil", null],\

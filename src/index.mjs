@@ -31,11 +31,12 @@ export class ForeverWebSocket extends EventEmitter {
    * @param {string} address - The URL to which to connect
    * @param {string|string[]} [protocol] - The list of subprotocols
    * @param {object} [options] - Options as described below, plus options as specified on https://github.com/websockets/ws/blob/master/doc/ws.md#class-websocket
-   * @param {object} [options.automaticOpen=true] -
-   * @param {object} [options.reconnect] - Optional parameter for reconnecting. If parameter property is missing or `null`, no reconnection will reoccur
-   * @param {number} [options.reconnect.factor=1.5] - Multiplicative factor for exponential backoff strategy.
+   * @param {boolean} [options.automaticOpen=true] - Controls if WebSocket should be created and connected automatically to the server
+   * @param {object} [options.reconnect={}] - Optional parameter for reconnecting. If parameter property is missing or `null`, no reconnection will reoccur
+   * @param {'fibonacci'|'exponential' [options.reconnect.strategy='fibonacci'] - Backoff strategy.
    * @param {number} [options.reconnect.initialDelay=50] - Defaults to 50 ms
    * @param {number} [options.reconnect.maxDelay=10000] - Defaults to 10000 ms
+   * @param {number} [options.reconnect.factor=1.5] - Multiplicative factor for 'exponential' backoff strategy.
    * @param {boolean} [options.reconnect.randomizeDelay=false] - Range of randomness and must be between 0 and 1. By default, no randomisation is applied
    * @param {number} [options.timeout] - timeout in milliseconds after which the websockets reconnects when no messages are received. Defaults to no timeout.
    * @param {object} [options.ping] - Controls how ping are sent to websocket server. By default no ping is sent
@@ -178,7 +179,7 @@ export class ForeverWebSocket extends EventEmitter {
     }
 
     // Create reconnect manager if needed
-    if (this.#optionsExtended.hasOwnProperty('reconnect')) {
+    if (this.#optionsExtended?.reconnect !== null) {
       this.#reconnectManager = createReconnectFactory(
         this.#optionsExtended.reconnect,
         (retryNumber, lastConnectionTimestamp) => {

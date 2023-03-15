@@ -34,7 +34,7 @@ Name | 	Type         | 	Attributes  | 	Default        |	Description
 `options.ping.interval` | number        | \<optional\> |                 | Ping interval value in milliseconds
 `options.ping.data` | array \| number \| object \| string \| ArrayBuffer \| buffer | \<optional\> |                 | The data to send in the ping frame
 `options.ping.pingFrame` | boolean       | \<optional\> | `false`         | Specifies whether ping should be sent as a ping frame
-`options.ping.mask` | boolean       | \<optional\> | `true`          | Specifies whether `data` should be masked or not
+`options.ping.mask` | boolean       | \<optional\> |  | Specifies whether `data` should be masked or not
 `options.newWebSocket` | function      | \<optional\> |                 | Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL).
 
 

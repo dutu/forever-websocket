@@ -17,24 +17,25 @@ WebSocket client, reconnecting and isomorphic. A simple implementation.
 ### `new ForeverWebSocket(address[, protocol][, options])`
 Parameters:
 
-Name | 	Type         | 	Attributes   |	Default |	Description
------|---------------|---------------|----------|-------------
-`address` | string        |               | |  The URL to which to connect
-`protocol` | string \| string[]      | \<optional\> |  | The list of subprotocols
-`options` | object        | \<optional\>  | | Options[^1]
-`options.automaticOpen` | boolean       | \<optional\>  | `true` | Controls if WebSocket should be created and connected automatically to the server. See also [`connect()`](#method-connect)
-`options.reconnect` | object \| `null`        | \<optional\>  | `{}` | Parameters for reconnecting. If `null`, no reconnection will reoccur 
-`options.reconnect.strategy` | `'fibonacci'` \| `'exponential'` | \<optional\>  | `'fibonacci'` | Backoff strategy
-`options.reconnect.initialDelay` | number        | \<optional\>  | `50` | Initial delay in milliseconds
-`options.reconnect.factor` | number        | \<optional\>  | `1.5` | Multiplicative factor for `'exponential'` backoff strategy
-`options.reconnect.maxDelay` | number        | \<optional\>  | `10000` | Maximum delay in milliseconds
-`options.reconnect.randomizeDelay` | number        | \<optional\>  | `0` | Range of randomness and must be between `0` and `1`
-`options.timeout` | number        | \<optional\>  | no timeout | Timeout in milliseconds after which the websockets reconnects when no messages are received
-`options.ping` | object        | \<optional\>  | no ping | Controls how ping are sent to websocket server
-`options.ping.interval` | number        | \<optional\>  |  | Ping interval value in milliseconds
-`options.ping.data` | array \| number \| object \| string \| ArrayBuffer \| buffer           | \<optional\>  |  | The data to send in the ping frame
-`options.ping.mask` | boolean       | \<optional\>  | `true` | Specifies whether `data` should be masked or not
-`options.newWebSocket` | function      | \<optional\>  |  | Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL).
+Name | 	Type         | 	Attributes  | 	Default        |	Description
+-----|---------------|--------------|-----------------|-------------
+`address` | string        |              |                 |  The URL to which to connect
+`protocol` | string \| string[]      | \<optional\> |                 | The list of subprotocols
+`options` | object        | \<optional\> |                 | Options[^1]
+`options.automaticOpen` | boolean       | \<optional\> | `true`         | Controls if WebSocket should be created and connected automatically to the server. See also [`connect()`](#method-connect)
+`options.reconnect` | object \| `null`        | \<optional\> | `{}`            | Parameters for reconnecting. If `null`, no reconnection will reoccur 
+`options.reconnect.strategy` | `'fibonacci'` \| `'exponential'` | \<optional\> | `'fibonacci'`   | Backoff strategy
+`options.reconnect.initialDelay` | number        | \<optional\> | `50`            | Initial delay in milliseconds
+`options.reconnect.factor` | number        | \<optional\> | `1.5`           | Multiplicative factor for `'exponential'` backoff strategy
+`options.reconnect.maxDelay` | number        | \<optional\> | `10000`         | Maximum delay in milliseconds
+`options.reconnect.randomizeDelay` | number        | \<optional\> | `0`             | Range of randomness and must be between `0` and `1`
+`options.timeout` | number        | \<optional\> | no timeout      | Timeout in milliseconds after which the websockets reconnects when no messages are received
+`options.ping` | object        | \<optional\> | no ping         | Controls how ping are sent to websocket server
+`options.ping.interval` | number        | \<optional\> |                 | Ping interval value in milliseconds
+`options.ping.data` | array \| number \| object \| string \| ArrayBuffer \| buffer | \<optional\> |                 | The data to send in the ping frame
+`options.ping.pingFrame` | boolean       | \<optional\> | `false`         | Specifies whether ping should be sent as a ping frame
+`options.ping.mask` | boolean       | \<optional\> | `true`          | Specifies whether `data` should be masked or not
+`options.newWebSocket` | function      | \<optional\> |                 | Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL).
 
 
 [^1]: Standard WebSocket options are supported, in addition options described here are implemented

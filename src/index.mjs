@@ -33,25 +33,26 @@ export class ForeverWebSocket extends EventEmitter {
    * @param {object} [options] - Options as described below, plus options as specified on https://github.com/websockets/ws/blob/master/doc/ws.md#class-websocket
    * @param {boolean} [options.automaticOpen=true] - Controls if WebSocket should be created and connected automatically to the server
    * @param {object} [options.reconnect={}] - Optional parameter for reconnecting. If parameter property is missing or `null`, no reconnection will reoccur
-   * @param {'fibonacci'|'exponential' [options.reconnect.strategy='fibonacci'] - Backoff strategy.
+   * @param {'fibonacci'|'exponential'} [options.reconnect.strategy='fibonacci'] - Backoff strategy
    * @param {number} [options.reconnect.initialDelay=50] - Defaults to 50 ms
    * @param {number} [options.reconnect.maxDelay=10000] - Defaults to 10000 ms
-   * @param {number} [options.reconnect.factor=1.5] - Multiplicative factor for 'exponential' backoff strategy.
+   * @param {number} [options.reconnect.factor=1.5] - Multiplicative factor for 'exponential' backoff strategy
    * @param {boolean} [options.reconnect.randomizeDelay=false] - Range of randomness and must be between 0 and 1. By default, no randomisation is applied
-   * @param {number} [options.timeout] - timeout in milliseconds after which the websockets reconnects when no messages are received. Defaults to no timeout.
-   * @param {object} [options.ping] - Controls how ping are sent to websocket server. By default no ping is sent
+   * @param {number} [options.timeout] - timeout in milliseconds after which the websockets reconnects when no messages are received. Defaults to no timeout
+   * @param {object} [options.ping] - Controls how ping are sent to websocket server. By default, no ping is sent
    * @param {number} [options.ping.interval] - Ping interval value in milliseconds
-   * @param {array|number|object|string|ArrayBuffer|buffer} [options.ping.data] - The data to send in the ping frame
-   * @param {boolean} [options.ping.mask=true] - Specifies whether `data` should be masked or not. Defaults to `true` when websocket is not a server client
-   * @param {function} [options.newWebSocket] - Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL).
+   * @param {array|number|object|string|ArrayBuffer|buffer} [options.ping.data] - The data to send in the ping message
+   * @param {boolean} [options.ping.pingFrame=false] - Specifies whether ping should be sent as a ping frame
+   * @param {boolean} [options.ping.mask] - Specifies whether `data` should be masked or not
+   * @param {function} [options.newWebSocket] - Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL)
    */
   constructor(address, protocol, options) {
     super()
 
     // Helper function - Checks if `propertyName` is a method of `obj`
     const isMethod = (obj, propertyName) => {
-      const desc = Object.getOwnPropertyDescriptor (obj, propertyName);
-      return !!desc && typeof desc.value === 'function';
+      const desc = Object.getOwnPropertyDescriptor (obj, propertyName)
+      return !!desc && typeof desc.value === 'function'
     }
 
     // Helper function - Checks if `obj` is an object
@@ -66,13 +67,17 @@ export class ForeverWebSocket extends EventEmitter {
     let allOptions
     if (Array.isArray(protocol) || typeof protocol === 'string') {
       this.#protocol = protocol
-      allOptions = options || {}
-    } else {
-      this.#protocol = undefined
-      allOptions = protocol || {}
     }
 
     // Store options parameters, separating the keys to `#optionsWebSocket` (WebSocket native options) and `#optionsExtended` (ForeverWebSocket options)
+    if (isObject(options)) {
+      allOptions = options
+    } else if (isObject(protocol)){
+      allOptions = protocol
+    } else {
+      allOptions = {}
+    }
+
     Object.keys(allOptions).forEach((key) => {
       if (this.#optionsExtendedPropertyNames.includes(key)) {
         if (isObject(allOptions[key]) && isObject(this.#optionsExtended[key])) {
@@ -224,7 +229,7 @@ export class ForeverWebSocket extends EventEmitter {
         },
         () => {
           if (this.readyState === 1) {
-            if (typeof this.ping === 'function') {
+            if (typeof this.ping === 'function' && this.#optionsExtended.ping.frame) {
               this.ping(this.#optionsExtended.ping.data, this.#optionsExtended.ping.mask)
             } else {
               this.send(this.#optionsExtended.ping.data)

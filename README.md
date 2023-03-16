@@ -53,7 +53,7 @@ Connects the WebSocket.
 When `ForeverWebsocket` is created with `automaticOpen = false` in the constructor, underlying WebSocket objects is not created.
 In this case, method `connect()` needs to be used to create the WebSocket and connect it to the server.
 
->The method has effect when `automaticOpen = true`, or when it is called the second time.    
+>The method has no effect when `automaticOpen = true`, or when it is called the second time.    
 
 <br>
 

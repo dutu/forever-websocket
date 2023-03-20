@@ -1,15 +1,15 @@
 {
   "name": "forever-websocket",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "WebSocket client, reconnecting and isomorphic, a simple implementation",
-  "main": "src/index.mjs",
-  "module": "src/index.mjs",
+  "main": "./src/index.mjs",
+  "module": "./src/index.mjs",
   "type": "module",
-  "browser": "src/browser.js",
+  "browser": "./src/browser.js",
   "exports": {
     ".": {
       "browser": "./src/browser.js",
-      "import": "src/index.mjs"
+      "import": "./src/index.mjs"
     },
     "./package.json": "./package.json"
   },
@@ -32,9 +32,7 @@
   "engines": {
     "node": ">=10.0.0"
   },
-  "scripts": {
-  },
-  "packageManager": "yarn@3.4.1",
+  "packageManager": "yarn@3.5.0",
   "dependencies": {
     "eventemitter3": "^5.0.0",
     "ws": "^8.13.0"

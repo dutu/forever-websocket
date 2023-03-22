@@ -101,7 +101,7 @@ It is emitted just before WebSocket tries to reconnect again.
 * `retryNumber` - The retry number that will be attempted next
 * `delay` - Period of delay in milliseconds until the next connection attempt 
 
-* It is emitted when a connection attempt has failed and there needs to be a delay until the next retry.  
+It is emitted when a connection attempt has failed and there needs to be a delay until the next retry.  
 
 
 <br>
@@ -111,7 +111,7 @@ It is emitted just before WebSocket tries to reconnect again.
 * `lastConnectedMts` - Millisecond timestamp on when WebSocket was last connected
 
 It is emitted when WebSocket is connected again.
- > WebSocket event  `connected` is still received. Event `reconnected` is an additional event which provides extra information.  
+ > WebSocket event  `open` is still received. Event `reconnected` is an additional event which provides extra information.  
 
 
 <br>

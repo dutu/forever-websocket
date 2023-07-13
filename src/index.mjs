@@ -197,10 +197,6 @@ export class ForeverWebSocket extends EventEmitter {
       )
     }
 
-    if (this.#optionsExtended.automaticOpen) {
-      this.connect()
-    }
-
     function createPingFactory({ interval }, callbackPing) {
       let intervalId
       function start() {
@@ -283,6 +279,10 @@ export class ForeverWebSocket extends EventEmitter {
           this.refresh()
         }
       )
+    }
+
+    if (this.#optionsExtended.automaticOpen) {
+      this.connect()
     }
   }
 
@@ -398,9 +398,14 @@ export class ForeverWebSocket extends EventEmitter {
 
   connect() {
     // If a WebSocket is already defined do nothing
-    if (this.ws) {
+    if (this.ws && this.ws.readyState === ws.OPEN) {
       return
     }
+
+    if (this.ws && this.ws.terminate) {
+      this.ws.terminate()
+    }
+
     // Stop ping and timout managers, will activate them again when WebSocket connection is open
     this.#pingManager?.stop()
     this.#timeoutManager?.stop()

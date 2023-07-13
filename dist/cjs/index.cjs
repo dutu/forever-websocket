@@ -195,9 +195,6 @@ class ForeverWebSocket extends _eventemitter.default {
         this.emit('delay', retryNumber, delay);
       });
     }
-    if (this.#optionsExtended.automaticOpen) {
-      this.connect();
-    }
     function createPingFactory({
       interval
     }, callbackPing) {
@@ -270,6 +267,9 @@ class ForeverWebSocket extends _eventemitter.default {
         this.emit('timeout', lastActiveMts);
         this.refresh();
       });
+    }
+    if (this.#optionsExtended.automaticOpen) {
+      this.connect();
     }
   }
   once(eventName, listener, options) {
@@ -391,9 +391,13 @@ class ForeverWebSocket extends _eventemitter.default {
   }
   connect() {
     // If a WebSocket is already defined do nothing
-    if (this.ws) {
+    if (this.ws && this.ws.readyState === _ws.default.OPEN) {
       return;
     }
+    if (this.ws && this.ws.terminate) {
+      this.ws.terminate();
+    }
+
     // Stop ping and timout managers, will activate them again when WebSocket connection is open
     this.#pingManager?.stop();
     this.#timeoutManager?.stop();

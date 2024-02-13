@@ -1,6 +1,6 @@
 {
   "name": "forever-websocket",
-  "version": "0.4.1",
+  "version": "0.5.1",
   "description": "WebSocket client, reconnecting and isomorphic, a simple implementation",
   "main": "./dist/cjs/index.cjs",
   "module": "./src/index.mjs",
@@ -40,15 +40,15 @@
   "engines": {
     "node": ">=10.0.0"
   },
-  "packageManager": "yarn@3.6.1",
+  "packageManager": "yarn@4.1.0",
   "dependencies": {
-    "eventemitter3": "^5.0.0",
-    "ws": "^8.13.0"
+    "eventemitter3": "^5.0.1",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.22.9",
-    "@babel/core": "^7.22.9",
-    "@babel/preset-env": "^7.22.9",
-    "@babel/register": "^7.22.5"
+    "@babel/cli": "^7.23.9",
+    "@babel/core": "^7.23.9",
+    "@babel/preset-env": "^7.23.9",
+    "@babel/register": "^7.23.7"
   }
 }

@@ -31,6 +31,8 @@ const RAW_RUNTIME_STATE =
           ["@babel/preset-env", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:7.23.9"],\
           ["@babel/register", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:7.23.7"],\
           ["eventemitter3", "npm:5.0.1"],\
+          ["isomorphic-ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:5.0.0"],\
+          ["lodash", "npm:4.17.21"],\
           ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.16.0"]\
         ],\
         "linkType": "SOFT"\
@@ -3289,6 +3291,8 @@ const RAW_RUNTIME_STATE =
           ["@babel/preset-env", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:7.23.9"],\
           ["@babel/register", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:7.23.7"],\
           ["eventemitter3", "npm:5.0.1"],\
+          ["isomorphic-ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:5.0.0"],\
+          ["lodash", "npm:4.17.21"],\
           ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.16.0"]\
         ],\
         "linkType": "SOFT"\
@@ -3652,6 +3656,28 @@ const RAW_RUNTIME_STATE =
         "linkType": "HARD"\
       }]\
     ]],\
+    ["isomorphic-ws", [\
+      ["npm:5.0.0", {\
+        "packageLocation": "./.yarn/cache/isomorphic-ws-npm-5.0.0-9c72251c2d-e20eb2aee0.zip/node_modules/isomorphic-ws/",\
+        "packageDependencies": [\
+          ["isomorphic-ws", "npm:5.0.0"]\
+        ],\
+        "linkType": "SOFT"\
+      }],\
+      ["virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:5.0.0", {\
+        "packageLocation": "./.yarn/__virtual__/isomorphic-ws-virtual-9c239ccb6a/0/cache/isomorphic-ws-npm-5.0.0-9c72251c2d-e20eb2aee0.zip/node_modules/isomorphic-ws/",\
+        "packageDependencies": [\
+          ["isomorphic-ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:5.0.0"],\
+          ["@types/ws", null],\
+          ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.16.0"]\
+        ],\
+        "packagePeers": [\
+          "@types/ws",\
+          "ws"\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
     ["js-tokens", [\
       ["npm:4.0.0", {\
         "packageLocation": "./.yarn/cache/js-tokens-npm-4.0.0-0ac852e9e2-af37d0d913.zip/node_modules/js-tokens/",\
@@ -3702,6 +3728,15 @@ const RAW_RUNTIME_STATE =
           ["locate-path", "npm:3.0.0"],\
           ["p-locate", "npm:3.0.0"],\
           ["path-exists", "npm:3.0.0"]\
+        ],\
+        "linkType": "HARD"\
+      }]\
+    ]],\
+    ["lodash", [\
+      ["npm:4.17.21", {\
+        "packageLocation": "./.yarn/cache/lodash-npm-4.17.21-6382451519-c08619c038.zip/node_modules/lodash/",\
+        "packageDependencies": [\
+          ["lodash", "npm:4.17.21"]\
         ],\
         "linkType": "HARD"\
       }]\

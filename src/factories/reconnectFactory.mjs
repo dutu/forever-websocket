@@ -30,6 +30,11 @@
  * }
  */
 export function createReconnectFactory({ strategy = 'fibonacci', initialDelay = 50, maxDelay = 10000, randomizeDelay = true, factor = 1.5 } = {}, callbackStartConnect, callbackStartDelay) {
+  let _strategy = strategy
+  let _initialDelay = initialDelay
+  let _maxDelay = maxDelay
+  let _randomizeDelay = randomizeDelay
+  let _factor = factor
   let lastConnectedMts
   let isStopped = false
   let retryNumber = 0
@@ -45,15 +50,15 @@ export function createReconnectFactory({ strategy = 'fibonacci', initialDelay = 
   function scheduleNextConnect() {
     const getNextDelay = {
       fibonacci: () => delay + previousDelay,
-      exponential: () => delay * factor,
+      exponential: () => delay * _factor,
     }
 
     lastConnectedMts = Date.now()
     isStopped = false
     previousDelay = delay
     delay = nextDelay
-    let randomizedDelay = Math.min(delay, maxDelay)
-    randomizedDelay = randomizeDelay ? Math.round(randomizedDelay * (1 + Math.random() * 0.2)) : randomizedDelay
+    let randomizedDelay = Math.min(delay, _maxDelay)
+    randomizedDelay = _randomizeDelay ? Math.round(randomizedDelay * (1 + Math.random() * 0.2)) : randomizedDelay
 
 
     callbackStartDelay(retryNumber + 1, randomizedDelay)
@@ -64,7 +69,7 @@ export function createReconnectFactory({ strategy = 'fibonacci', initialDelay = 
     timeoutId.unref?.()
 
     // calculate the delay for the next reconnect
-    nextDelay =  getNextDelay[strategy]()
+    nextDelay =  getNextDelay[_strategy]()
   }
 
   /**
@@ -78,7 +83,7 @@ export function createReconnectFactory({ strategy = 'fibonacci', initialDelay = 
     retryNumber = 0
     previousDelay = 0
     delay = 0
-    nextDelay = initialDelay
+    nextDelay = _initialDelay
     lastConnectedMts = undefined
   }
 
@@ -118,11 +123,25 @@ export function createReconnectFactory({ strategy = 'fibonacci', initialDelay = 
     return retryNumber
   }
 
+  /**
+   * Update operations parameters and reset.
+   * @public
+   */
+  function update({ strategy = _strategy, initialDelay = _initialDelay, maxDelay = _maxDelay, randomizeDelay = _randomizeDelay, factor = _factor }) {
+    _strategy = strategy
+    _initialDelay = initialDelay
+    _maxDelay = maxDelay
+    _randomizeDelay = randomizeDelay
+    _factor = factor
+    reset()
+  }
+
   // Return the public interface
   return Object.freeze({
     scheduleNextConnect,
     reset,
     stop,
+    update,
     lastConnectedMts: getlastConnectedMts,
     isStopped: getIsStopped,
     retryNumber: getRetryNumber,

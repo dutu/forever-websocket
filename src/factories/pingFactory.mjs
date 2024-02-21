@@ -20,6 +20,8 @@
  * pingFactory.stop();
  */
 export function createPingFactory({ interval }, callbackPing) {
+  let _interval = interval
+  let _callbackPing = callbackPing
   let intervalId
 
   /**
@@ -29,8 +31,8 @@ export function createPingFactory({ interval }, callbackPing) {
    */
   function start() {
     intervalId = setInterval(() => {
-      callbackPing()
-    }, interval)
+      _callbackPing()
+    }, _interval)
 
     // Optional call to unref to allow the program to exit if this is the only active operation in the event loop.
     intervalId.unref?.()
@@ -44,9 +46,22 @@ export function createPingFactory({ interval }, callbackPing) {
     clearInterval(intervalId)
   }
 
+  /**
+   * Update operations parameters.
+   * @public
+   */
+  function update({ interval = _interval } = {}, callbackPing = _callbackPing) {
+    _interval = interval
+    _callbackPing = callbackPing
+    stop()
+    start()
+  }
+
+
   // Return the public interface
   return Object.freeze({
     start,
     stop,
+    update,
   })
 }

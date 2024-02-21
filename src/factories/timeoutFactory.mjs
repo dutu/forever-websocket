@@ -22,6 +22,8 @@
  * timeoutFactory.stop();
  */
 export function createTimeoutFactory({ timeout }, callbackTimeout) {
+  let _timeout = timeout
+  let _callbackTimeout = callbackTimeout
   let timeoutId
   let lastActiveMts
 
@@ -39,7 +41,7 @@ export function createTimeoutFactory({ timeout }, callbackTimeout) {
       clearTimeout(timeoutId)
       timeoutId = setTimeout(() => {
         callbackTimeout(lastActiveMts)
-      }, timeout)
+      }, _timeout)
     }
 
     timeoutId.unref?.()
@@ -63,10 +65,20 @@ export function createTimeoutFactory({ timeout }, callbackTimeout) {
     timeoutId = null
   }
 
+  /**
+   * Update operations parameters.
+   * @public
+   */
+  function update({ timeout }) {
+    _timeout = timeout
+    reset()
+  }
+
   // Return the public interface
   return Object.freeze({
     start,
     reset,
     stop,
+    update,
   })
 }

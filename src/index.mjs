@@ -245,7 +245,7 @@ export class ForeverWebSocket extends EventEmitter {
     this.#pingManager?.stop()
     this.#timeoutManager?.stop()
     this.#reconnectManager?.stop()
-    this.ws.close(code, reason)
+    this.ws?.close(code, reason)
   }
 
   /**
@@ -258,9 +258,9 @@ export class ForeverWebSocket extends EventEmitter {
     this.#timeoutManager?.stop()
     this.#reconnectManager?.stop()
     if (typeof this.ws?.terminate === 'function') {
-      this.ws.terminate()
+      this.ws?.terminate()
     } else {
-      this.ws.close()
+      this.ws?.close()
     }
   }
 

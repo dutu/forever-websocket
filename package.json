@@ -1,6 +1,6 @@
 {
   "name": "forever-websocket",
-  "version": "0.5.1",
+  "version": "1.0.0",
   "description": "WebSocket client, reconnecting and isomorphic, a simple implementation",
   "main": "./dist/cjs/index.cjs",
   "module": "./src/index.mjs",

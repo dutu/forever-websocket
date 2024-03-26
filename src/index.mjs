@@ -1,4 +1,4 @@
-import ws from 'isomorphic-ws'
+import WebSocket from 'isomorphic-ws'
 import EventEmitter from 'eventemitter3'
 import _ from 'lodash'
 import { isMethod } from './utils/isMethod.mjs'
@@ -6,6 +6,17 @@ import { isObject } from './utils/isObject.mjs'
 import { createReconnectFactory } from './factories/reconnectFactory.mjs'
 import { createPingFactory } from './factories/pingFactory.mjs'
 import { createTimeoutFactory} from './factories/timeoutFactory.mjs'
+
+const addListenerMethods = {
+  once: 'once',
+  on: 'on',
+  addEventListener: 'addEventListener',
+}
+
+const removeListenerMethods = {
+  off: 'off',
+  removeEventListener: 'removeEventListener',
+}
 
 /**
  * This class represents a reconnecting WebSocket client. It extends the EventEmitter.
@@ -103,39 +114,40 @@ export class ForeverWebSocket extends EventEmitter {
     return this.ws?.readyState
   }
 
-  addListener(eventName, listener, options) {
-    this.#registerAndAddEventListener(eventName, listener, options)
-    return super.addListener(eventName, listener, options)
-  }
-
-  // Alias for addListener()
   on(eventName, listener, options) {
-    return this.addListener(eventName, listener, options)
+    this.#registerEventListener(eventName, listener, options, addListenerMethods.on)
+    this.#attachEventListener(eventName, listener, options, addListenerMethods.on)
+    super.on(eventName, listener)
+    return this
   }
 
-  // Alias for addListener()
   addEventListener(eventName, listener, options) {
-    return this.addListener(eventName, listener, options)
+    this.#registerEventListener(eventName, listener, options, addListenerMethods.addEventListener)
+    this.#attachEventListener(eventName, listener, options, addListenerMethods.addEventListener)
+    super.on(eventName, listener)
+    return this
   }
 
   once(eventName, listener, options) {
-    this.#registerAndAddEventListener(eventName, listener, { ...(options || {}), once: true })
-    return super.once(eventName, listener, options)
+    const optionsToUse = { ...(options || {}), once: true }
+    this.#registerEventListener(eventName, listener, optionsToUse, addListenerMethods.once)
+    this.#attachEventListener(eventName, listener, optionsToUse, addListenerMethods.once)
+    super.once(eventName, listener)
+    return this
   }
 
-  removeListener(eventName, listener, options, once) {
-    this.#deregisterAndRemoveEventListener(eventName, listener)
-    return super.removeListener(eventName, listener, options, once)
-  }
-
-  // Alias for removeListener()
   off(eventName, listener, options, once) {
-    return this.removeListener(eventName, listener, options, once)
+    this.#deregisterEventListener(eventName, listener)
+    this.#detachEventListener(eventName, listener)
+    super.off(eventName, listener)
+    return this
   }
 
-  // Alias for removeListener()
   removeEventListener(eventName, listener, options, once) {
-    return this.removeListener(eventName, listener, options, once)
+    this.#deregisterEventListener(eventName, listener, options, once)
+    this.#detachEventListener(eventName, listener, options)
+    super.off(eventName, listener)
+    return this
   }
 
   /**
@@ -295,14 +307,13 @@ export class ForeverWebSocket extends EventEmitter {
     }
   }
 
-  #registerAndAddEventListener(eventName, listener, options) {
+  #registerEventListener(eventName, listener, options, addListenerMethod) {
     // Add listener to listeners array, so that it can be added later when a new WebSocket object is created at reconnect
-    if(Array.isArray(this.#listenersWebSocket[eventName])) {
-      this.#listenersWebSocket[eventName].unshift({ listener, options })
-    } else {
-      this.#listenersWebSocket[eventName] = [{ listener, options }]
-    }
+    this.#listenersWebSocket[eventName] ??= []
+    this.#listenersWebSocket[eventName].push({ listener, options, addListenerMethod })
+  }
 
+  #attachEventListener(eventName, listener, options, addListenerMethod) {
     if (this.ws) {
       if (options?.once) {
         this.ws.addEventListener(eventName, () => {
@@ -311,32 +322,38 @@ export class ForeverWebSocket extends EventEmitter {
         }, { once: true })
       }
 
-      this.ws.addEventListener(eventName, listener, options)
+      this.ws[addListenerMethod](eventName, listener, options)
     }
-
-    return this
   }
 
-  #deregisterAndRemoveEventListener(eventName, listener) {
-    // Remove listener from listeners array
-    let index = this.#listenersWebSocket[eventName]?.findIndex((elem) => elem.listener === listener)
+  /*
+    Deregister listener from listeners array
+   */
+  #deregisterEventListener(eventName, listener) {
+    if (!Array.isArray(this.#listenersWebSocket[eventName])) {
+      return
+    }
+
+    const index = this.#listenersWebSocket[eventName].findIndex((elem) => elem.listener === listener)
     if (index > -1) {
       this.#listenersWebSocket[eventName].splice(index, 1)
     }
+  }
 
-    if (this.#ownEventNames.includes(eventName)) {
-      return super.removeListener(eventName, listener)
-    }
-
+  /*
+    Remove listener from listeners array
+   */
+  #detachEventListener(eventName, listener) {
     if (this.ws) {
       this.ws.removeEventListener(eventName, listener)
+      if (typeof this.ws.off === 'function') {
+        this.ws.off(eventName, listener)
+      }
     }
-
-    return this
   }
 
   #isWebSocketOpen() {
-    return this.ws?.readyState === ws.OPEN
+    return this.ws?.readyState === WebSocket.OPEN
   }
 
   #reattachConnectionManagers() {
@@ -377,34 +394,21 @@ export class ForeverWebSocket extends EventEmitter {
     })
   }
 
+  /*
+    Attach registered event listeners to the new underlying WebSocket object
+   */
   #reattachEventListeners(){
-    // Add registered event listeners to the new underlying WebSocket object
     for (const [eventName, listeners] of Object.entries(this.#listenersWebSocket)) {
-      for (const { listener, options } of listeners) {
-        // If once = true, then remove listeners from listeners array when the event has occurred once
-        if (options?.once) {
-          // Use the appropriate method for adding the listener, depending on the WebSocket implementation
-          const addListenerMethod = typeof this.ws.on === 'function' ? 'on' : 'addEventListener'
-          this.ws[addListenerMethod](eventName, () => {
-            let index = this.#listenersWebSocket[eventName].findIndex((elem) => elem.listener === listener && elem.options?.once)
-            if (index > -1) {
-              this.#listenersWebSocket[eventName].splice(index, 1)
-            }
-          }, { once: true })
-        }
-
-        // Reattach the event listener to the WebSocket using the preferred method
-        if (typeof this.ws.on === 'function') {
-          this.ws.on(eventName, listener, options)
-        } else {
-          this.ws.addEventListener(eventName, listener, options)
-        }
+      for (const { listener, options, addListenerMethod } of listeners) {
+        this.#attachEventListener(eventName, listener, options, addListenerMethod)
       }
     }
   }
 
+  /*
+    Set event handler properties for the new underlying WebSocket object
+   */
   #assignCustomEventHandlers() {
-    // Set event handler properties for the new underlying WebSocket object
     for (const eventHandlerName of ['onopen', 'onmessage', 'onerror', 'onclose']) {
       if (this[eventHandlerName]) {
         this.ws[eventHandlerName] = this[eventHandlerName]
@@ -414,22 +418,16 @@ export class ForeverWebSocket extends EventEmitter {
 
   #cleanupWebSocket() {
     try {
-      // Determine the appropriate method for detaching event listeners just once
-      const detachListener = typeof this.ws.removeEventListener === 'function'
-        ? (eventName, listener) => this.ws.removeEventListener(eventName, listener)
-        : (eventName, listener) => this.ws.off(eventName, listener);
-
       // Iterate over all event names and their listeners
       Object.keys(this.#listenersWebSocket).forEach(eventName => {
         this.#listenersWebSocket[eventName].forEach(({ listener }) => {
           try {
-            // Use the determined method to detach each listener
-            detachListener(eventName, listener);
+            this.#detachEventListener(eventName, listener)
           } catch (innerError) {
             // Silently handle any errors encountered while detaching listeners
           }
-        });
-      });
+        })
+      })
     } catch (error) {
       // Silently handle any errors that might occur during the detachment process
     }
@@ -503,11 +501,11 @@ export class ForeverWebSocket extends EventEmitter {
     // Dynamically add properties and methods from the WebSocket class to this instance, excluding reserved names.
     // This ensures the instance mimics the WebSocket API closely, providing a familiar interface to users.
     const manuallyDefinedPropertyNames = ['close', 'send', 'constructor', 'readyState', 'onopen', 'onmessage', 'onerror', 'onclose', 'addEventListener', 'removeEventListener']
-    let propertyNames = Object.getOwnPropertyNames(ws.prototype)
+    let propertyNames = Object.getOwnPropertyNames(WebSocket.prototype)
     for (const propertyName of propertyNames) {
       if (manuallyDefinedPropertyNames.includes(propertyName)) continue
 
-      if (isMethod(ws.prototype, propertyName)) {
+      if (isMethod(WebSocket.prototype, propertyName)) {
         this[propertyName] = (...args) => this.ws[propertyName](...args)
       } else {
         Object.defineProperty(this, propertyName, {

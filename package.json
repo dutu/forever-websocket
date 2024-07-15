@@ -40,17 +40,17 @@
   "engines": {
     "node": ">=10.0.0"
   },
-  "packageManager": "yarn@4.1.0",
+  "packageManager": "yarn@4.3.1",
   "dependencies": {
     "eventemitter3": "^5.0.1",
     "isomorphic-ws": "^5.0.0",
     "lodash": "^4.17.21",
-    "ws": "^8.16.0"
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.23.9",
-    "@babel/core": "^7.23.9",
-    "@babel/preset-env": "^7.23.9",
-    "@babel/register": "^7.23.7"
+    "@babel/cli": "^7.24.8",
+    "@babel/core": "^7.24.9",
+    "@babel/preset-env": "^7.24.8",
+    "@babel/register": "^7.24.6"
   }
 }

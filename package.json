@@ -1,6 +1,6 @@
 {
   "name": "forever-websocket",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "WebSocket client, reconnecting and isomorphic, a simple implementation",
   "main": "./dist/cjs/index.cjs",
   "module": "./src/index.mjs",
@@ -40,7 +40,7 @@
   "engines": {
     "node": ">=10.0.0"
   },
-  "packageManager": "yarn@4.3.1",
+  "packageManager": "yarn@4.6.0",
   "dependencies": {
     "eventemitter3": "^5.0.1",
     "isomorphic-ws": "^5.0.0",
@@ -48,10 +48,10 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@babel/cli": "^7.24.8",
-    "@babel/core": "^7.24.9",
-    "@babel/preset-env": "^7.24.8",
-    "@babel/register": "^7.24.6"
+    "@babel/cli": "^7.26.4",
+    "@babel/core": "^7.26.7",
+    "@babel/preset-env": "^7.26.7",
+    "@babel/register": "^7.25.9"
   },
   "resolutions": {
     "kraken-api-client": "portal:../kraken-api-client"

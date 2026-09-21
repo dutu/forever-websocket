@@ -6,12 +6,12 @@ Object.defineProperty(exports, "__esModule", {
 exports.ForeverWebSocket = void 0;
 var _isomorphicWs = _interopRequireDefault(require("isomorphic-ws"));
 var _eventemitter = _interopRequireDefault(require("eventemitter3"));
-var _lodash = _interopRequireDefault(require("lodash"));
-var _isMethod = require("./utils/isMethod.mjs");
-var _isObject = require("./utils/isObject.mjs");
-var _reconnectFactory = require("./factories/reconnectFactory.mjs");
-var _pingFactory = require("./factories/pingFactory.mjs");
-var _timeoutFactory = require("./factories/timeoutFactory.mjs");
+var _isMethod = require("./utils/isMethod.cjs");
+var _isObject = require("./utils/isObject.cjs");
+var _reconnectFactory = require("./factories/reconnectFactory.cjs");
+var _pingFactory = require("./factories/pingFactory.cjs");
+var _timeoutFactory = require("./factories/timeoutFactory.cjs");
+var _connectTimeoutFactory = require("./factories/connectTimeoutFactory.cjs");
 function _interopRequireDefault(e) { return e && e.__esModule ? e : { default: e }; }
 const addListenerMethods = {
   once: 'once',
@@ -33,7 +33,7 @@ class ForeverWebSocket extends _eventemitter.default {
   // Names of properties which are not cloned from underlying WebSocket
   #ownEventNames = ['connecting', 'delay', 'timeout', 'newListener', 'removeListener', 'reconnected'];
   // Property names for `options`
-  #optionsExtendedPropertyNames = ['automaticOpen', 'reconnect', 'timeout', 'ping', 'createWebSocket'];
+  #optionsExtendedPropertyNames = ['automaticOpen', 'reconnect', 'timeout', 'ping', 'createWebSocket', 'connectTimeout'];
   // stores constructor parameter - the URL to which to connect
   #address;
   // stores constructor parameter - the URL to which to connect#address
@@ -45,8 +45,11 @@ class ForeverWebSocket extends _eventemitter.default {
   #reconnectManager;
   #timeoutManager;
   #pingManager;
+  #connectTimeoutManager;
   // stores WebSocket registered listeners, which will be re-registered when a new WebSocket connection is established at reconnect
   #listenersWebSocket = {};
+  // stores property values (e.g. `binaryType`) set before the underlying WebSocket exists
+  #pendingPropertyValues = {};
 
   /**
    * Constructs a new WebSocket connection with enhanced features like automatic reconnection, ping management, and connection timeout handling.
@@ -59,19 +62,21 @@ class ForeverWebSocket extends _eventemitter.default {
    *
    * @param {boolean} [options.automaticOpen=true] - Whether to automatically open the WebSocket connection upon instantiation.
    *
-   * @param {object} [options.reconnect={}] - Configuration for automatic reconnection. If omitted or null, reconnection is disabled.
+   * @param {object} [options.reconnect={}] - Configuration for automatic reconnection. If omitted, reconnection is enabled with default values. If `null`, reconnection is disabled.
    * @param {'fibonacci'|'exponential'} [options.reconnect.strategy='fibonacci'] - The strategy to use for calculating reconnection delay.
    * @param {number} [options.reconnect.initialDelay=50] - The initial delay in milliseconds before attempting a reconnection.
    * @param {number} [options.reconnect.maxDelay=10000] - The maximum delay in milliseconds between reconnection attempts.
    * @param {number} [options.reconnect.factor=1.5] - The multiplicative factor for calculating the next delay in the 'exponential' strategy.
-   * @param {boolean} [options.reconnect.randomizeDelay=false] - Whether to apply randomization to the reconnection delay.
+   * @param {boolean} [options.reconnect.randomizeDelay=true] - Whether to apply randomization (up to +20%) to the reconnection delay.
    *
    * @param {number} [options.timeout] - The timeout in milliseconds for detecting loss of connection. A timeout event is triggered if no messages are received within this period.
+   *
+   * @param {number} [options.connectTimeout] - The timeout in milliseconds for establishing the connection. If the connection is not open within this period a `connectTimeout` event is emitted, the pending connection is closed and a reconnect is attempted (if reconnection is enabled). When omitted, no connect timeout is applied. In Node.js the underlying `ws` `handshakeTimeout` option can be used as well, and is passed through to the WebSocket.
    *
    * @param {object} [options.ping] - Configuration for sending ping messages to maintain the connection.
    * @param {number} [options.ping.interval] - The interval in milliseconds at which ping messages are sent.
    * @param {any} [options.ping.data] - The data to send in the ping message.
-   * @param {boolean} [options.ping.pingFrame=false] - Whether to send the ping as a WebSocket ping frame.
+   * @param {boolean} [options.ping.pingFrame=false] - Whether to send the ping as a WebSocket ping frame. `frame` is accepted as an alias.
    * @param {boolean} [options.ping.mask] - Whether to mask the ping data.
    *
    * @param {function} [options.createWebSocket] - A function that returns a new WebSocket instance, allowing for custom WebSocket creation logic upon reconnection.
@@ -104,6 +109,7 @@ class ForeverWebSocket extends _eventemitter.default {
     this.#setupReconnectManager();
     this.#setupPingManager();
     this.#setupTimeoutManager();
+    this.#setupConnectTimeoutManager();
     if (this.#optionsExtended.automaticOpen) {
       this.connect();
     }
@@ -172,8 +178,9 @@ class ForeverWebSocket extends _eventemitter.default {
   }
 
   /**
-   * Initiates a connection to the WebSocket server. If a connection is already open, the function
-   * will return early without establishing a new connection. This method is responsible for
+   * Initiates a connection to the WebSocket server. If a connection is already open, or is still
+   * being established (`CONNECTING`), the function returns early without tearing down the existing
+   * WebSocket. Use `refresh()` to force a new connection. This method is responsible for
    * setting up a new WebSocket connection, including cleaning up any previous connections,
    * reinitializing connection managers, and reattaching event listeners and custom event handlers.
    *
@@ -198,8 +205,8 @@ class ForeverWebSocket extends _eventemitter.default {
    * });
    */
   async connect() {
-    // Check if the WebSocket is already open
-    if (this.#isWebSocketOpen()) {
+    // Check if the WebSocket is already open or still establishing a connection
+    if (this.#isWebSocketOpen() || this.ws?.readyState === _isomorphicWs.default.CONNECTING) {
       // Return (don't connect/reconnect)
       return;
     }
@@ -210,9 +217,8 @@ class ForeverWebSocket extends _eventemitter.default {
       this.#cleanupWebSocket();
     }
 
-    // Stop ping and timout managers, will activate them again when WebSocket connection is open
-    this.#pingManager?.stop();
-    this.#timeoutManager?.stop();
+    // Stop ping, timout and connect timeout managers, will activate them again when needed
+    this.#stopConnectionManagers();
 
     // Create new WebSocket
     try {
@@ -222,15 +228,22 @@ class ForeverWebSocket extends _eventemitter.default {
         this.ws = new _isomorphicWs.default(this.#address, this.#protocol, this.#optionsWebSocket);
       }
     } catch (error) {
-      this.emit('error', error);
-      this.ws = null; // Set this.ws to null to indicate no connection
-      // Schedule reconnect if the option is on
-      if (this.#reconnectManager && !this.#reconnectManager.isStopped()) {
-        this.#reconnectManager.scheduleNextConnect();
+      try {
+        this.emit('error', error);
+      } finally {
+        // Recovery must run even if a listener of the `error` event throws
+        this.#handleConnectFailure();
       }
       return;
     }
-    this.#reconnectManager?.reset();
+
+    // Apply properties (e.g. `binaryType`) that were set before the WebSocket existed
+    this.#applyPendingPropertyValues();
+
+    // Arm the connect timeout if configured; it is stopped when the connection is open
+    if (this.#optionsExtended.connectTimeout > 0) {
+      this.#ensureConnectTimeoutManager().start();
+    }
     this.#reattachConnectionManagers();
     this.#reattachEventListeners();
     this.#assignCustomEventHandlers();
@@ -244,7 +257,7 @@ class ForeverWebSocket extends _eventemitter.default {
    * @param {string} [reason] - Optional human-readable string explaining why the connection is closing.
    */
   refresh(code, reason) {
-    this.ws.close(code, reason);
+    this.ws?.close(code, reason);
   }
 
   /**
@@ -255,8 +268,7 @@ class ForeverWebSocket extends _eventemitter.default {
    * @param {string} [reason] - An optional string providing a human-readable explanation of why the connection is closing.
    */
   close(code, reason) {
-    this.#pingManager?.stop();
-    this.#timeoutManager?.stop();
+    this.#stopConnectionManagers();
     this.#reconnectManager?.stop();
     this.ws?.close(code, reason);
   }
@@ -267,8 +279,7 @@ class ForeverWebSocket extends _eventemitter.default {
    * For some browser WebSocket implementation this method is not available, in which case internally this calls `WebSocket.close()`.
    */
   terminate() {
-    this.#pingManager?.stop();
-    this.#timeoutManager?.stop();
+    this.#stopConnectionManagers();
     this.#reconnectManager?.stop();
     if (typeof this.ws?.terminate === 'function') {
       this.ws?.terminate();
@@ -280,27 +291,80 @@ class ForeverWebSocket extends _eventemitter.default {
   /**
    * Selectively updates configuration options for the instance.
    *
+   * Features which were not configured at construction are created on demand. Passing `null` disables
+   * a feature at runtime: it stops and removes the corresponding manager. For `timeout` and
+   * `connectTimeout` a non-positive value has the same effect as `null`.
+   *
    * @param {object} [options] - An optional object containing configuration options. This includes both standard WebSocket options and extended options for reconnection, ping, and timeout management.
    *
-   * @param {object} [options.reconnect] - Configuration for automatic reconnection. If omitted or null, reconnection is disabled.
-   * @param {number} [options.timeout] - The timeout in milliseconds for detecting loss of connection. A timeout event is triggered if no messages are received within this period.
-   * @param {object} [options.ping] - Configuration for sending ping messages to maintain the connection.
+   * @param {object|null} [options.reconnect] - Configuration for automatic reconnection. Pass `null` to disable reconnection.
+   * @param {number|null} [options.timeout] - The timeout in milliseconds for detecting loss of connection. A timeout event is triggered if no messages are received within this period. Pass `null` or `0` to disable it.
+   * @param {number|null} [options.connectTimeout] - The timeout in milliseconds for establishing the connection. Pass `null` or `0` to disable it.
+   * @param {object|null} [options.ping] - Configuration for sending ping messages to maintain the connection. Pass `null` to disable pings.
    * @param {function} [options.createWebSocket] - A function that returns a new WebSocket instance, allowing for custom WebSocket creation logic upon reconnection.
    */
   updateOptions(options) {
+    if (!(0, _isObject.isObject)(options)) {
+      return;
+    }
     if (options.hasOwnProperty('reconnect')) {
-      _lodash.default.assignIn(this.#optionsExtended.reconnect, options.reconnect);
-      this.#reconnectManager.update(options.reconnect);
+      if (options.reconnect === null) {
+        this.#disposeReconnectManager();
+        this.#optionsExtended.reconnect = null;
+      } else {
+        const reconnectOptions = {
+          ...((0, _isObject.isObject)(this.#optionsExtended.reconnect) ? this.#optionsExtended.reconnect : {}),
+          ...options.reconnect
+        };
+        this.#optionsExtended.reconnect = reconnectOptions;
+        this.#ensureReconnectManager().update(reconnectOptions);
+      }
     }
     if (options.hasOwnProperty('timeout')) {
-      this.#optionsExtended.timeout = options.timeout;
-      this.#timeoutManager.update({
-        timeout: options.timeout
-      });
+      if (!(options.timeout > 0)) {
+        this.#disposeTimeoutManager();
+        this.#optionsExtended.timeout = null;
+      } else {
+        this.#optionsExtended.timeout = options.timeout;
+        this.#ensureTimeoutManager().update({
+          timeout: options.timeout
+        });
+        if (this.#isWebSocketOpen()) {
+          this.#timeoutManager.start();
+        }
+      }
+    }
+    if (options.hasOwnProperty('connectTimeout')) {
+      if (!(options.connectTimeout > 0)) {
+        this.#disposeConnectTimeoutManager();
+        this.#optionsExtended.connectTimeout = null;
+      } else {
+        this.#optionsExtended.connectTimeout = options.connectTimeout;
+        this.#ensureConnectTimeoutManager().update({
+          timeout: options.connectTimeout
+        });
+        if (this.ws?.readyState === _isomorphicWs.default.CONNECTING) {
+          this.#connectTimeoutManager.start();
+        }
+      }
     }
     if (options.hasOwnProperty('ping')) {
-      _lodash.default.assignIn(this.#optionsExtended.ping, options.ping);
-      this.#pingManager.update(options.ping);
+      if (options.ping === null) {
+        this.#disposePingManager();
+        this.#optionsExtended.ping = null;
+      } else {
+        const pingOptions = {
+          ...((0, _isObject.isObject)(this.#optionsExtended.ping) ? this.#optionsExtended.ping : {}),
+          ...options.ping
+        };
+        this.#optionsExtended.ping = pingOptions;
+        this.#ensurePingManager().update({
+          interval: pingOptions.interval
+        });
+        if (this.#isWebSocketOpen()) {
+          this.#pingManager.start();
+        }
+      }
     }
     if (options.hasOwnProperty('createWebSocket')) {
       this.#optionsExtended.createWebSocket = options.createWebSocket;
@@ -357,8 +421,14 @@ class ForeverWebSocket extends _eventemitter.default {
     return this.ws?.readyState === _isomorphicWs.default.OPEN;
   }
   #reattachConnectionManagers() {
+    // Capture the socket these handlers belong to, so events coming from a socket which has
+    // been superseded in the meantime (e.g. by `connect()`) are ignored.
+    const socket = this.ws;
+
     // When WebSocket connection is open, restart ping and timeout managers, and reset the reconnect manager
-    this.ws.addEventListener('open', () => {
+    socket.addEventListener('open', () => {
+      if (this.ws !== socket) return;
+      this.#connectTimeoutManager?.stop();
       this.#pingManager?.start();
       this.#timeoutManager?.start();
       if (this.#reconnectManager) {
@@ -372,25 +442,29 @@ class ForeverWebSocket extends _eventemitter.default {
     });
 
     // When a message is received, reset timeout manager
-    this.ws.addEventListener('message', () => {
+    socket.addEventListener('message', () => {
+      if (this.ws !== socket) return;
       this.#timeoutManager?.reset();
     });
 
-    // When pong is received, refresh timeout manager
-    // Note: Not all WebSocket implementations support `on()` method and `pong` event
-    if (typeof this.ws.on === 'function') {
-      this.ws.on('pong', data => {
+    // When a ping or pong frame is received, refresh timeout manager
+    // Note: Not all WebSocket implementations support `on()` method and `ping`/`pong` events
+    if (typeof socket.on === 'function') {
+      socket.on('pong', data => {
+        if (this.ws !== socket) return;
+        this.#timeoutManager?.reset();
+      });
+      socket.on('ping', data => {
+        if (this.ws !== socket) return;
         this.#timeoutManager?.reset();
       });
     }
 
     // When WebSocket closes, stop ping and timeout managers and schedule next reconnect if reconnect manager is defined and not stopped manually.
-    this.ws.addEventListener('close', () => {
-      this.#pingManager?.stop();
-      this.#timeoutManager?.stop();
-      if (this.#reconnectManager && !this.#reconnectManager.isStopped()) {
-        this.#reconnectManager.scheduleNextConnect();
-      }
+    socket.addEventListener('close', () => {
+      if (this.ws !== socket) return;
+      this.#stopConnectionManagers();
+      this.#scheduleNextConnect();
     });
   }
 
@@ -506,7 +580,16 @@ class ForeverWebSocket extends _eventemitter.default {
   #replicateWebSocketProperties() {
     // Dynamically add properties and methods from the WebSocket class to this instance, excluding reserved names.
     // This ensures the instance mimics the WebSocket API closely, providing a familiar interface to users.
-    const manuallyDefinedPropertyNames = ['close', 'send', 'constructor', 'readyState', 'onopen', 'onmessage', 'onerror', 'onclose', 'addEventListener', 'removeEventListener'];
+    const manuallyDefinedPropertyNames = ['close', 'send', 'terminate', 'constructor', 'readyState', 'onopen', 'onmessage', 'onerror', 'onclose', 'addEventListener', 'removeEventListener'];
+    // Default values returned while the underlying WebSocket does not exist
+    const defaultValueGetters = {
+      binaryType: () => 'blob',
+      bufferedAmount: () => 0,
+      extensions: () => '',
+      isPaused: () => false,
+      protocol: () => '',
+      url: () => this.#address
+    };
     let propertyNames = Object.getOwnPropertyNames(_isomorphicWs.default.prototype);
     for (const propertyName of propertyNames) {
       if (manuallyDefinedPropertyNames.includes(propertyName)) continue;
@@ -514,9 +597,38 @@ class ForeverWebSocket extends _eventemitter.default {
         this[propertyName] = (...args) => this.ws[propertyName](...args);
       } else {
         Object.defineProperty(this, propertyName, {
-          get: () => this.ws[propertyName],
-          set: value => this.ws[propertyName] = value
+          get: () => {
+            if (this.ws) {
+              return this.ws[propertyName];
+            }
+            if (Object.prototype.hasOwnProperty.call(this.#pendingPropertyValues, propertyName)) {
+              return this.#pendingPropertyValues[propertyName];
+            }
+            return defaultValueGetters[propertyName]?.();
+          },
+          set: value => {
+            if (this.ws) {
+              this.ws[propertyName] = value;
+            } else {
+              // Remember the value and apply it once the WebSocket is created
+              this.#pendingPropertyValues[propertyName] = value;
+            }
+          }
         });
+      }
+    }
+  }
+
+  /*
+    Apply property values (e.g. `binaryType`) which were set before the underlying WebSocket existed.
+  */
+  #applyPendingPropertyValues() {
+    if (!this.ws) return;
+    for (const propertyName of Object.keys(this.#pendingPropertyValues)) {
+      try {
+        this.ws[propertyName] = this.#pendingPropertyValues[propertyName];
+      } catch (error) {
+        // Some WebSocket properties are read-only; ignore
       }
     }
   }
@@ -531,13 +643,29 @@ class ForeverWebSocket extends _eventemitter.default {
    */
   #setupReconnectManager() {
     if (this.#optionsExtended?.reconnect !== null) {
-      this.#reconnectManager = (0, _reconnectFactory.createReconnectFactory)(this.#optionsExtended.reconnect, (retryNumber, lastConnectionTimestamp) => {
-        this.emit('connecting', retryNumber, lastConnectionTimestamp);
-        this.connect();
-      }, (retryNumber, delay) => {
-        this.emit('delay', retryNumber, delay);
-      });
+      this.#ensureReconnectManager();
     }
+  }
+  #ensureReconnectManager() {
+    if (this.#reconnectManager) {
+      return this.#reconnectManager;
+    }
+    const reconnectOptions = (0, _isObject.isObject)(this.#optionsExtended.reconnect) ? this.#optionsExtended.reconnect : {};
+    this.#reconnectManager = (0, _reconnectFactory.createReconnectFactory)(reconnectOptions, (retryNumber, lastConnectionTimestamp) => {
+      try {
+        this.emit('connecting', retryNumber, lastConnectionTimestamp);
+      } finally {
+        // A throwing `connecting` listener must not cancel the reconnection attempt
+        this.connect();
+      }
+    }, (retryNumber, delay) => {
+      this.emit('delay', retryNumber, delay);
+    });
+    return this.#reconnectManager;
+  }
+  #disposeReconnectManager() {
+    this.#reconnectManager?.stop();
+    this.#reconnectManager = undefined;
   }
 
   /**
@@ -548,19 +676,34 @@ class ForeverWebSocket extends _eventemitter.default {
    * @private
    */
   #setupPingManager() {
-    if (this.#optionsExtended.ping) {
-      this.#pingManager = (0, _pingFactory.createPingFactory)({
-        interval: this.#optionsExtended.ping.interval
-      }, () => {
-        if (this.readyState === 1) {
-          if (typeof this.ping === 'function' && this.#optionsExtended.ping.frame) {
-            this.ping(this.#optionsExtended.ping.data, this.#optionsExtended.ping.mask);
-          } else {
-            this.send(this.#optionsExtended.ping.data);
-          }
-        }
-      });
+    if ((0, _isObject.isObject)(this.#optionsExtended.ping)) {
+      this.#ensurePingManager();
     }
+  }
+  #ensurePingManager() {
+    if (this.#pingManager) {
+      return this.#pingManager;
+    }
+    const pingOptions = (0, _isObject.isObject)(this.#optionsExtended.ping) ? this.#optionsExtended.ping : {};
+    this.#pingManager = (0, _pingFactory.createPingFactory)({
+      interval: pingOptions.interval
+    }, () => {
+      const currentPingOptions = (0, _isObject.isObject)(this.#optionsExtended.ping) ? this.#optionsExtended.ping : {};
+      if (this.readyState === _isomorphicWs.default.OPEN) {
+        // `pingFrame` is the documented name, `frame` is accepted as an alias
+        const sendAsPingFrame = currentPingOptions.pingFrame ?? currentPingOptions.frame;
+        if (typeof this.ping === 'function' && sendAsPingFrame) {
+          this.ping(currentPingOptions.data, currentPingOptions.mask);
+        } else {
+          this.send(currentPingOptions.data);
+        }
+      }
+    });
+    return this.#pingManager;
+  }
+  #disposePingManager() {
+    this.#pingManager?.stop();
+    this.#pingManager = undefined;
   }
 
   /**
@@ -574,12 +717,105 @@ class ForeverWebSocket extends _eventemitter.default {
   #setupTimeoutManager() {
     // Create timeout manager if needed
     if (this.#optionsExtended.hasOwnProperty('timeout') && this.#optionsExtended.timeout > 0) {
-      this.#timeoutManager = (0, _timeoutFactory.createTimeoutFactory)({
-        timeout: this.#optionsExtended.timeout
-      }, lastActiveMts => {
+      this.#ensureTimeoutManager();
+    }
+  }
+  #ensureTimeoutManager() {
+    if (this.#timeoutManager) {
+      return this.#timeoutManager;
+    }
+    this.#timeoutManager = (0, _timeoutFactory.createTimeoutFactory)({
+      timeout: this.#optionsExtended.timeout
+    }, lastActiveMts => {
+      try {
         this.emit('timeout', lastActiveMts);
+      } finally {
+        // A throwing `timeout` listener must not cancel the self-healing refresh
         this.refresh();
-      });
+      }
+    });
+    return this.#timeoutManager;
+  }
+  #disposeTimeoutManager() {
+    this.#timeoutManager?.stop();
+    this.#timeoutManager = undefined;
+  }
+
+  /**
+   * Sets up the connect timeout manager. This manager detects connections which are never established
+   * (for example a blackholed TCP connect) and triggers a reconnect instead of hanging in `CONNECTING`.
+   *
+   * @private
+   */
+  #setupConnectTimeoutManager() {
+    if (this.#optionsExtended.connectTimeout > 0) {
+      this.#ensureConnectTimeoutManager();
+    }
+  }
+  #ensureConnectTimeoutManager() {
+    if (this.#connectTimeoutManager) {
+      return this.#connectTimeoutManager;
+    }
+    this.#connectTimeoutManager = (0, _connectTimeoutFactory.createConnectTimeoutFactory)({
+      timeout: this.#optionsExtended.connectTimeout
+    }, () => this.#handleConnectTimeout());
+    return this.#connectTimeoutManager;
+  }
+  #disposeConnectTimeoutManager() {
+    this.#connectTimeoutManager?.stop();
+    this.#connectTimeoutManager = undefined;
+  }
+
+  /*
+    Called when a connection is not established within the configured `connectTimeout`.
+  */
+  #handleConnectTimeout() {
+    try {
+      this.emit('connectTimeout');
+    } finally {
+      // Detach the pending WebSocket first, so its (late) `close` event does not schedule a second reconnect
+      const socket = this.ws;
+      this.ws = null;
+      this.#stopConnectionManagers();
+      if (socket) {
+        try {
+          if (typeof socket.terminate === 'function') {
+            socket.terminate();
+          } else {
+            socket.close();
+          }
+        } catch (error) {
+          // Ignore errors while forcing the pending connection closed
+        }
+      }
+      this.#scheduleNextConnect();
+    }
+  }
+
+  /*
+    Called when the underlying WebSocket could not be created.
+  */
+  #handleConnectFailure() {
+    this.ws = null;
+    this.#stopConnectionManagers();
+    this.#scheduleNextConnect();
+  }
+
+  /*
+    Stops the ping, inactivity timeout and connect timeout managers.
+  */
+  #stopConnectionManagers() {
+    this.#pingManager?.stop();
+    this.#timeoutManager?.stop();
+    this.#connectTimeoutManager?.stop();
+  }
+
+  /*
+    Schedules a reconnect if the reconnect manager exists and was not stopped manually.
+  */
+  #scheduleNextConnect() {
+    if (this.#reconnectManager && !this.#reconnectManager.isStopped()) {
+      this.#reconnectManager.scheduleNextConnect();
     }
   }
 }

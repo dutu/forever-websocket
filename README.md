@@ -23,19 +23,20 @@ Parameters:
 | `protocol`                         | string \| string[]      | \<optional\> |                 | The list of subprotocols|
 | `options`                          | object        | \<optional\> |                 | Options[^1]|
 | `options.automaticOpen`            | boolean       | \<optional\> | `true`         | Controls if WebSocket should be created and connected automatically to the server. See also [`connect()`](#method-connect)|
-| `options.reconnect`                | object \| `null`        | \<optional\> | `{}`            | Parameters for reconnecting. If `null`, no reconnection will reoccur |
+| `options.reconnect`                | object \| `null`        | \<optional\> | `{}`            | Parameters for reconnecting. Reconnection is enabled with default values when omitted. If `null`, no reconnection will reoccur |
 | `options.reconnect.strategy`       | `'fibonacci'` \| `'exponential'` | \<optional\> | `'fibonacci'`   | Backoff strategy|
 | `options.reconnect.initialDelay`   | number        | \<optional\> | `50`            | Initial delay in milliseconds|
 | `options.reconnect.factor`         | number        | \<optional\> | `1.5`           | Multiplicative factor for `'exponential'` backoff strategy|
 | `options.reconnect.maxDelay`       | number        | \<optional\> | `10000`         | Maximum delay in milliseconds|
-| `options.reconnect.randomizeDelay` | number        | \<optional\> | `0`             | Range of randomness and must be between `0` and `1`|
+| `options.reconnect.randomizeDelay` | boolean       | \<optional\> | `true`          | Whether to apply randomization (up to +20%) to the reconnection delay|
 |  `options.timeout`                 | number        | \<optional\> | no timeout      | Timeout in milliseconds after which the websockets reconnects when no messages are received|
+|  `options.connectTimeout`          | number        | \<optional\> | no connect timeout | Timeout in milliseconds for establishing the connection. If the connection is not open within this period, event `connectTimeout` is emitted, the pending connection is closed and a reconnect is attempted (if reconnection is enabled). When using node.js, the underlying `ws` `handshakeTimeout` option is passed through to the WebSocket as well|
 | `options.ping`                     | object        | \<optional\> | no ping         | Controls how ping are sent to websocket server|
 | `options.ping.interval`            | number        | \<optional\> |                 | Ping interval value in milliseconds|
 | `options.ping.data`                | array \| number \| object \| string \| ArrayBuffer \| buffer | \<optional\> |                 | The data to send in the ping frame|
-| `options.ping.pingFrame`           | boolean       | \<optional\> | `false`         | Specifies whether ping should be sent as a ping frame|
+| `options.ping.pingFrame`           | boolean       | \<optional\> | `false`         | Specifies whether ping should be sent as a ping frame. `frame` is accepted as an alias|
 | `options.ping.mask`                | boolean       | \<optional\> |  | Specifies whether `data` should be masked or not|
-| `options.newWebSocket`             | function      | \<optional\> |                 | Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL)|
+| `options.createWebSocket`          | function      | \<optional\> |                 | Functions which returns a WebSocket instance. If present it will be called when a new WebSocket is needed when reconnecting. The function could be useful in situations when the new WebSocket connection needs to be created with different parameters when reconnecting (e.g. a timestamp in the headers, or different URL)|
 
 
 [^1]: Standard WebSocket options are supported, in addition options described here are implemented
@@ -53,7 +54,8 @@ Connects the WebSocket.
 When `ForeverWebsocket` is created with `automaticOpen = false` in the constructor, underlying WebSocket objects is not created.
 In this case, method `connect()` needs to be used to create the WebSocket and connect it to the server.
 
->The method has no effect when `automaticOpen = true`, or when it is called the second time.    
+>The method has no effect if the WebSocket is already open, or if it is still being established (`CONNECTING`).
+>Use [`refresh()`](#method-refreshcode-reason) to force a new connection.
 
 <br>
 
@@ -78,6 +80,22 @@ Calls Websocket `close()`. Reconnection is not attempted.
 ### Method: `terminate()`
 Calls Websocket `terminate()`. Reconnection is not attempted.
 > Some WebSocket implementations do not support `terminate()`, in such case `close()` is called instead.
+
+
+<br>
+
+### Method: `updateOptions(options)`
+Selectively updates configuration options at runtime. Options for features which were not configured in the constructor are created on demand, so e.g. `updateOptions({ timeout: 30000 })` enables the timeout, and `updateOptions({ ping: { interval: 1000 } })` enables pings.
+
+Passing `null` disables a feature: it stops and removes the corresponding manager. For `timeout` and `connectTimeout`, a non-positive value has the same effect as `null`.
+
+| Name                   | Type          | Description|
+|------------------------|---------------|-------------|
+| `options.reconnect`    | object \| `null` | Reconnection parameters. `null` disables reconnection|
+| `options.timeout`      | number \| `null` | Inactivity timeout. `null` or `0` disables it|
+| `options.connectTimeout` | number \| `null` | Connect timeout. `null` or `0` disables it|
+| `options.ping`         | object \| `null` | Ping parameters. `null` disables pings|
+| `options.createWebSocket` | function   | Custom WebSocket factory used when a new WebSocket is needed|
 
 
 <br>
@@ -120,3 +138,9 @@ It is emitted when WebSocket is connected again.
 * lastRefreshMts - Millisecond timestamp when WebSocket connection was last refreshed, which is when connection was open or last message was received.
 
 It is emitted when timout occurs. After the event is emitted the WebSocket connection is closed and a reconnect will be attempted if reconnection is configured. 
+
+
+<br>
+
+### Event: `connectTimeout`
+It is emitted when the connection was not established within `options.connectTimeout` milliseconds. After the event is emitted the pending connection is closed and a reconnect will be attempted if reconnection is configured.

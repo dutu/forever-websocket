@@ -61,15 +61,19 @@ export function createReconnectFactory({ strategy = 'fibonacci', initialDelay = 
     randomizedDelay = _randomizeDelay ? Math.round(randomizedDelay * (1 + Math.random() * 0.2)) : randomizedDelay
 
 
-    callbackStartDelay(retryNumber + 1, randomizedDelay)
-    timeoutId = setTimeout(() => {
-      retryNumber += 1
-      callbackStartConnect(retryNumber, lastConnectedMts)
-    }, randomizedDelay)
-    timeoutId.unref?.()
+    // The retry must be scheduled even if a `delay` listener throws
+    try {
+      callbackStartDelay(retryNumber + 1, randomizedDelay)
+    } finally {
+      timeoutId = setTimeout(() => {
+        retryNumber += 1
+        callbackStartConnect(retryNumber, lastConnectedMts)
+      }, randomizedDelay)
+      timeoutId.unref?.()
 
-    // calculate the delay for the next reconnect
-    nextDelay =  getNextDelay[_strategy]()
+      // calculate the delay for the next reconnect
+      nextDelay =  getNextDelay[_strategy]()
+    }
   }
 
   /**

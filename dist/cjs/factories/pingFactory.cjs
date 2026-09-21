@@ -31,6 +31,7 @@ function createPingFactory({
   let _interval = interval;
   let _callbackPing = callbackPing;
   let intervalId;
+  let isRunning = false;
 
   /**
    * Starts the periodic ping operation using the defined interval.
@@ -38,6 +39,10 @@ function createPingFactory({
    * @public
    */
   function start() {
+    if (isRunning) {
+      return;
+    }
+    isRunning = true;
     intervalId = setInterval(() => {
       _callbackPing();
     }, _interval);
@@ -51,20 +56,25 @@ function createPingFactory({
    * @public
    */
   function stop() {
+    isRunning = false;
     clearInterval(intervalId);
+    intervalId = undefined;
   }
 
   /**
-   * Update operations parameters.
+   * Update operations parameters without starting a stopped manager.
    * @public
    */
   function update({
     interval = _interval
   } = {}, callbackPing = _callbackPing) {
+    const wasRunning = isRunning;
     _interval = interval;
     _callbackPing = callbackPing;
     stop();
-    start();
+    if (wasRunning) {
+      start();
+    }
   }
 
   // Return the public interface

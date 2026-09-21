@@ -26,6 +26,7 @@ export function createTimeoutFactory({ timeout }, callbackTimeout) {
   let _callbackTimeout = callbackTimeout
   let timeoutId
   let lastActiveMts
+  let isRunning = false
 
   /**
    * Resets the timeout to prevent the callback from being triggered. This method can be used to
@@ -35,14 +36,15 @@ export function createTimeoutFactory({ timeout }, callbackTimeout) {
    */
   function reset() {
     lastActiveMts = Date.now()
-    if (typeof timeoutId?.refresh === 'function') {
-      timeoutId.refresh()
-    } else {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        callbackTimeout(lastActiveMts)
-      }, _timeout)
-    }
+    isRunning = true
+
+    // Recreate the timer so a changed `_timeout` always takes effect.
+    // Note: Node's `TimeObject.refresh()` would re-arm with the original duration,
+    // which silently ignored `update({ timeout })`.
+    clearTimeout(timeoutId)
+    timeoutId = setTimeout(() => {
+      callbackTimeout(lastActiveMts)
+    }, _timeout)
 
     timeoutId.unref?.()
   }
@@ -63,15 +65,19 @@ export function createTimeoutFactory({ timeout }, callbackTimeout) {
   function stop() {
     clearTimeout(timeoutId)
     timeoutId = null
+    isRunning = false
   }
 
   /**
-   * Update operations parameters.
+   * Update operations parameters. A stopped timeout is only updated, not started.
    * @public
    */
   function update({ timeout }) {
+    const wasRunning = isRunning
     _timeout = timeout
-    reset()
+    if (wasRunning) {
+      reset()
+    }
   }
 
   // Return the public interface

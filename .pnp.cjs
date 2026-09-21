@@ -35,7 +35,6 @@ const RAW_RUNTIME_STATE =
           ["eventemitter3", "npm:5.0.4"],\
           ["forever-websocket", "workspace:."],\
           ["isomorphic-ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:5.0.0"],\
-          ["lodash", "npm:4.18.1"],\
           ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.21.1"]\
         ],\
         "linkType": "SOFT"\
@@ -2299,7 +2298,6 @@ const RAW_RUNTIME_STATE =
           ["eventemitter3", "npm:5.0.4"],\
           ["forever-websocket", "workspace:."],\
           ["isomorphic-ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:5.0.0"],\
-          ["lodash", "npm:4.18.1"],\
           ["ws", "virtual:682b07edfe96e8b893a34dc3567c2f549a0a02e7785a1b549c97a8c0c4494290ddaca22cd43411555ec52ec8074c23d2ca9ad07a11e74bfc1e8cbae8a13dc54c#npm:8.21.1"]\
         ],\
         "linkType": "SOFT"\
@@ -2427,15 +2425,6 @@ const RAW_RUNTIME_STATE =
         "packageLocation": "./.yarn/cache/kind-of-npm-6.0.3-ab15f36220-5873d303fb.zip/node_modules/kind-of/",\
         "packageDependencies": [\
           ["kind-of", "npm:6.0.3"]\
-        ],\
-        "linkType": "HARD"\
-      }]\
-    ]],\
-    ["lodash", [\
-      ["npm:4.18.1", {\
-        "packageLocation": "./.yarn/cache/lodash-npm-4.18.1-a64c3070ac-306fea53df.zip/node_modules/lodash/",\
-        "packageDependencies": [\
-          ["lodash", "npm:4.18.1"]\
         ],\
         "linkType": "HARD"\
       }]\

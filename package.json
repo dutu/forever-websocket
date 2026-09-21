@@ -16,7 +16,8 @@
   },
   "scripts": {
     "build": "babel src --out-dir dist/cjs --extensions '.mjs' --out-file-extension '.cjs' --source-maps && node scripts/fix-cjs-requires.mjs",
-    "test": "yarn node --test \"test/*.test.mjs\""
+    "test": "yarn node --test \"test/*.test.mjs\"",
+    "prepublishOnly": "yarn build && yarn test"
   },
   "files": [
     "dist",
@@ -26,7 +27,7 @@
   "homepage": "https://github.com/dutu/forever-websocket",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dutu/forever-websocket"
+    "url": "git+https://github.com/dutu/forever-websocket.git"
   },
   "bugs": "https://github.com/dutu/forever-websocket/issues",
   "keywords": [

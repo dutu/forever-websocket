@@ -13,11 +13,6 @@ const addListenerMethods = {
   addEventListener: 'addEventListener',
 }
 
-const removeListenerMethods = {
-  off: 'off',
-  removeEventListener: 'removeEventListener',
-}
-
 /**
  * This class represents a reconnecting WebSocket client. It extends the EventEmitter.
  *
@@ -127,6 +122,15 @@ export class ForeverWebSocket extends EventEmitter {
     return this
   }
 
+  /**
+   * Alias for `on()`. Registers the listener so that it is re-attached when a new WebSocket is created at reconnect.
+   *
+   * @returns {this}
+   */
+  addListener(eventName, listener, options) {
+    return this.on(eventName, listener, options)
+  }
+
   addEventListener(eventName, listener, options) {
     this.#registerEventListener(eventName, listener, options, addListenerMethods.addEventListener)
     this.#attachEventListener(eventName, listener, options, addListenerMethods.addEventListener)
@@ -147,6 +151,15 @@ export class ForeverWebSocket extends EventEmitter {
     this.#detachEventListener(eventName, listener)
     super.off(eventName, listener)
     return this
+  }
+
+  /**
+   * Alias for `off()`. Deregisters the listener so that it is no longer re-attached at reconnect.
+   *
+   * @returns {this}
+   */
+  removeListener(eventName, listener, options, once) {
+    return this.off(eventName, listener, options, once)
   }
 
   removeEventListener(eventName, listener, options, once) {

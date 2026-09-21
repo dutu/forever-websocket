@@ -3,6 +3,7 @@
 ## 1.1.0
 
 ### Fixed
+* `addListener()` and `removeListener()` now register and detach listeners on the underlying WebSocket. Previously they were inherited from the EventEmitter and bypassed that logic, so `addListener()` never received socket messages and `removeListener()` did not stop delivery.
 * Recovery actions (reconnect scheduling, `refresh()`, `connect()`) now run even when a listener of the `error`, `connecting`, `timeout` or `delay` event throws. Previously a throwing listener silently cancelled the self-healing.
 * `updateOptions()` can now enable a feature which was not configured in the constructor (`reconnect`, `timeout`, `ping`, `connectTimeout`) and can disable a feature by passing `null` (or a non-positive value for the timeouts).
 * `options.ping.pingFrame` is now honored. Previously only the undocumented `ping.frame` option was read.

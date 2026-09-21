@@ -100,6 +100,14 @@ Passing `null` disables a feature: it stops and removes the corresponding manage
 
 <br>
 
+### Methods: `addListener(eventName, listener)` / `removeListener(eventName, listener)`
+Aliases of [`on()`](https://nodejs.org/api/events.html#emitteroneventname-listener) and [`off()`](https://nodejs.org/api/events.html#emitteroffeventname-listener) which also register the listener on the underlying WebSocket, so that it is attached again when the WebSocket is renewed at reconnect.
+
+`on()`, `once()`, `addEventListener()`, `off()` and `removeEventListener()` behave the same way.
+
+
+<br>
+
 ## Events
 
 All events normally emitted by WebSocket are emitted, with unchanged behaviour and parameters.

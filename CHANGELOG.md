@@ -21,5 +21,6 @@
 * `test/` suite using the built-in `node:test` runner (`yarn test`), and a post-build step which makes the emitted CommonJS entry point resolvable.
 
 ### Changed
+* The declared Node.js requirement is now `>=18` (it previously said `>=10`, which the source never supported).
 * Documentation corrected: `randomizeDelay` is a boolean which defaults to `true`, `reconnect` is enabled by default (only `null` disables it), and `createWebSocket` is the documented option name.
-* Removed the unused `lodash` dependency.
+* Removed the unused `lodash` and `@babel/register` dependencies.
